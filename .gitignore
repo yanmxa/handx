@@ -1,0 +1,24 @@
+# Ignore test reports and phase documentation
+MOBILE_CONNECTION_TEST_REPORT.md
+PHASE2_TEST_RESULTS.md
+PHASE3_TEST_RESULTS.md
+PHASE4_TEST_RESULTS.md
+PHASE5_MOBILE_OPTIMIZATION.md
+PHASE_D_COMPLETED.md
+SKIP_AUTH_SETUP.md
+TEST_RESULTS.md
+
+# Ignore temporary test files
+test-connection.html
+
+# Ignore configuration directories
+.claude/
+.mcp/
+.spec/
+.speckit/
+.playwright-mcp/
+
+# Ignore shared directory
+shared/
+
+# Keep README.md (not ignored)
