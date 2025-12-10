@@ -47,6 +47,13 @@ export default function TerminalPage() {
   const [headerVisible, setHeaderVisible] = useState(true); // Header visibility for mobile - default visible
   const [charWidth, setCharWidth] = useState<number>(7); // Dynamically measured character width
 
+  // Keyboard button states: 'disabled' (gray, read-only), 'active' (blue, with input box)
+  const [inputMode, setInputMode] = useState<'disabled' | 'active'>('disabled');
+  const [keyboardPosition, setKeyboardPosition] = useState({ x: 20, y: 100 }); // Position from bottom-right
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [keyboardHeight, setKeyboardHeight] = useState(0); // Track virtual keyboard height
+
   // Dynamically measure character width for accurate calculation
   const measureCharWidth = (): number => {
     if (!mobileTerminalRef.current) return 7;
@@ -207,6 +214,39 @@ export default function TerminalPage() {
       window.removeEventListener('resize', checkMobile);
     };
   }, []);
+
+  // Track keyboard height using visualViewport API
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const updateKeyboardHeight = () => {
+      const viewport = window.visualViewport;
+      if (viewport) {
+        const heightDiff = window.innerHeight - viewport.height;
+        setKeyboardHeight(Math.max(0, heightDiff));
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', updateKeyboardHeight);
+    window.visualViewport.addEventListener('scroll', updateKeyboardHeight);
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', updateKeyboardHeight);
+      window.visualViewport?.removeEventListener('scroll', updateKeyboardHeight);
+    };
+  }, []);
+
+  // Scroll to bottom when input mode is activated or keyboard appears
+  useEffect(() => {
+    if (inputMode === 'active' && mobileTerminalRef.current) {
+      setTimeout(() => {
+        mobileTerminalRef.current?.scrollTo({
+          top: mobileTerminalRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }, 100);
+    }
+  }, [inputMode, keyboardHeight]);
 
   // Toggle theme
   const toggleTheme = () => {
@@ -577,6 +617,36 @@ export default function TerminalPage() {
     }
   };
 
+
+  // Dragging handlers for keyboard button
+  const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setDragOffset({
+      x: window.innerWidth - keyboardPosition.x - clientX,
+      y: window.innerHeight - keyboardPosition.y - clientY,
+    });
+  };
+
+  const handleDragMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDragging) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const newX = window.innerWidth - clientX - dragOffset.x;
+    const newY = window.innerHeight - clientY - dragOffset.y;
+    // Keep button within bounds
+    setKeyboardPosition({
+      x: Math.max(10, Math.min(window.innerWidth - 60, newX)),
+      y: Math.max(60, Math.min(window.innerHeight - 60, newY)),
+    });
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
   const handleDisconnect = () => {
     if (ws) {
       ws.disconnect();
@@ -888,33 +958,38 @@ export default function TerminalPage() {
           {/* Terminal Display */}
           <div className="flex-1 p-2 md:p-4 overflow-hidden min-w-0">
             {isMobile ? (
-              /* Mobile: Simple HTML view */
+              /* Mobile: Simple HTML view with inline input */
               <div
                 ref={mobileTerminalRef}
                 className="h-full w-full overflow-y-auto font-mono text-xs leading-tight"
                 style={{
                   backgroundColor: themes[theme].terminal.background,
                   color: themes[theme].terminal.foreground,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'anywhere',
-                  padding: '4px 8px',
                 }}
-                dangerouslySetInnerHTML={{
-                  __html: (() => {
-                    const convert = new Convert({
-                      fg: themes[theme].terminal.foreground,
-                      bg: themes[theme].terminal.background,
-                      newline: true,
-                      escapeXML: true,
-                      stream: false,
-                    });
-                    // Remove separator lines before converting to HTML (prevent multi-line wrapping)
-                    const cleanedOutput = removeSeparatorLines(terminalOutput || '');
-                    return convert.toHtml(cleanedOutput);
-                  })(),
-                }}
-              />
+              >
+                {/* Terminal content */}
+                <div
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
+                    padding: '4px 8px',
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: (() => {
+                      const convert = new Convert({
+                        fg: themes[theme].terminal.foreground,
+                        bg: themes[theme].terminal.background,
+                        newline: true,
+                        escapeXML: true,
+                        stream: false,
+                      });
+                      const cleanedOutput = removeSeparatorLines(terminalOutput || '');
+                      return convert.toHtml(cleanedOutput);
+                    })(),
+                  }}
+                />
+              </div>
             ) : (
               /* Desktop: xterm.js */
               <div
@@ -925,12 +1000,111 @@ export default function TerminalPage() {
             )}
           </div>
 
-          {/* Spacer for floating input - Hide when sidebar is open on mobile */}
-          {selectedSession && !sidebarOpen && <div className="h-20 md:h-24"></div>}
+          {/* Desktop spacer */}
+          {selectedSession && !sidebarOpen && !isMobile && <div className="h-24"></div>}
 
-          {/* Command Input - Floating design - Hide when sidebar is open on mobile */}
-          {selectedSession && !sidebarOpen && (
-            <div className="fixed bottom-0 left-0 right-0 z-10 p-3 md:p-4 backdrop-blur-md bg-transparent">
+          {/* Mobile: Input box fixed above keyboard - only in active mode */}
+          {isMobile && inputMode === 'active' && selectedSession && !sidebarOpen && (
+            <div
+              className="fixed left-0 right-0 z-20 px-2"
+              style={{ bottom: keyboardHeight }}
+            >
+              <div className={`rounded-xl p-0.5 ${theme === 'dark' ? 'bg-neutral-900/95' : 'bg-white/95'} backdrop-blur-xl shadow-xl border ${theme === 'dark' ? 'border-neutral-600' : 'border-neutral-300'}`}>
+                <form onSubmit={handleSendCommand} className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={command}
+                    onChange={(e) => setCommand(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Enter command..."
+                    style={{ fontSize: '16px' }}
+                    className={`flex-1 px-4 py-2
+                      bg-transparent
+                      ${themes[theme].text}
+                      ${theme === 'dark' ? 'placeholder-neutral-500' : 'placeholder-neutral-400'}
+                      outline-none
+                      touch-manipulation
+                      font-sans text-base`}
+                    autoComplete="off"
+                    autoFocus
+                  />
+                  <button
+                    type={command.trim() ? 'submit' : 'button'}
+                    onClick={() => {
+                      if (!command.trim()) {
+                        setInputMode('disabled');
+                      }
+                    }}
+                    className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center
+                      transition-all duration-200 touch-manipulation
+                      ${command.trim()
+                        ? theme === 'dark' ? 'bg-neutral-500 text-neutral-200' : 'bg-neutral-500 text-white'
+                        : theme === 'dark' ? 'bg-neutral-700/70 text-neutral-400' : 'bg-neutral-200 text-neutral-500'
+                      }
+                      active:scale-90`}
+                    aria-label={command.trim() ? 'Send' : 'Close'}
+                  >
+                    {command.trim() ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5M5 12l7-7 7 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile: Draggable keyboard button - only in disabled mode */}
+          {isMobile && selectedSession && !sidebarOpen && inputMode === 'disabled' && (
+            <div
+              className="fixed z-20 touch-none select-none"
+              style={{
+                right: `${keyboardPosition.x}px`,
+                bottom: `${keyboardPosition.y}px`,
+              }}
+              onTouchStart={handleDragStart}
+              onTouchMove={handleDragMove}
+              onTouchEnd={handleDragEnd}
+            >
+              <button
+                onClick={() => {
+                  if (!isDragging) {
+                    if (inputMode === 'disabled') {
+                      setInputMode('active');
+                    } else {
+                      // Scroll to input box
+                      inputBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    }
+                  }
+                }}
+                disabled={!connected}
+                className={`w-12 h-12 rounded-full flex items-center justify-center
+                  transition-all duration-300 ease-out
+                  shadow-lg touch-manipulation
+                  ${isDragging ? 'scale-110' : 'scale-100'}
+                  bg-neutral-700/70 text-neutral-400
+                  hover:bg-neutral-600/70 hover:text-neutral-300
+                  disabled:opacity-40 disabled:cursor-not-allowed
+                  active:scale-95
+                  backdrop-blur-sm`}
+                aria-label={inputMode === 'disabled' ? 'Open keyboard' : 'Jump to input'}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <rect x="2" y="7" width="20" height="12" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 11h.01M10 11h.01M14 11h.01M18 11h.01M8 15h8" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Desktop: Always show input at bottom */}
+          {!isMobile && selectedSession && !sidebarOpen && (
+            <div className="fixed bottom-0 left-0 right-0 z-10 p-4 backdrop-blur-md bg-transparent">
               <form onSubmit={handleSendCommand} className="w-full min-w-0 max-w-3xl mx-auto">
                 <div className="relative flex items-center group">
                   {/* Gradient border effect */}
@@ -985,8 +1159,6 @@ export default function TerminalPage() {
               </form>
             </div>
           )}
-
-          {/* Removed bottom prompt - cleaner UI */}
         </div>
       </div>
     </div>
