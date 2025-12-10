@@ -1,0 +1,8 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="180" height="180" fill="#1f2937"/>
+  <path d="M45 67H90V90H45V67Z" fill="#3b82f6"/>
+  <path d="M90 67H135V90H90V67Z" fill="#60a5fa"/>
+  <path d="M45 90H90V113H45V90Z" fill="#60a5fa"/>
+  <path d="M90 90H135V113H90V90Z" fill="#93c5fd"/>
+  <text x="90" y="145" font-family="monospace" font-size="24" font-weight="bold" fill="#f3f4f6" text-anchor="middle">handx</text>
+</svg>
