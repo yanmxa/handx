@@ -13,14 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hand of the KING",
+  title: "",
   description: "Remote tmux session management on the go",
   manifest: "/manifest.json",
   themeColor: "#1f2937",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Hand of the KING",
+    title: "",
   },
   viewport: {
     width: "device-width",

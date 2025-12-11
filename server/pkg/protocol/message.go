@@ -20,6 +20,18 @@ const (
 	TypeSwitchSessionResponse MessageType = "switch_session_response"
 	TypeDeleteSession         MessageType = "delete_session"
 	TypeDeleteSessionResponse MessageType = "delete_session_response"
+	TypeRenameSession         MessageType = "rename_session"
+	TypeRenameSessionResponse MessageType = "rename_session_response"
+
+	// Window Management
+	TypeListWindows          MessageType = "list_windows"
+	TypeListWindowsResponse  MessageType = "list_windows_response"
+	TypeCreateWindow         MessageType = "create_window"
+	TypeCreateWindowResponse MessageType = "create_window_response"
+	TypeCloseWindow          MessageType = "close_window"
+	TypeCloseWindowResponse  MessageType = "close_window_response"
+	TypeSwitchWindow         MessageType = "switch_window"
+	TypeSwitchWindowResponse MessageType = "switch_window_response"
 
 	// Command Execution
 	TypeExecuteCommand         MessageType = "execute_command"
@@ -112,6 +124,70 @@ type SwitchSessionPayload struct {
 // DeleteSessionPayload is the payload for delete_session message
 type DeleteSessionPayload struct {
 	SessionName string `json:"session_name"`
+}
+
+// RenameSessionPayload is the payload for rename_session message
+type RenameSessionPayload struct {
+	OldName string `json:"old_name"`
+	NewName string `json:"new_name"`
+}
+
+// RenameSessionResponse is the payload for rename_session_response
+type RenameSessionResponse struct {
+	Success bool   `json:"success"`
+	OldName string `json:"old_name"`
+	NewName string `json:"new_name"`
+}
+
+// ListWindowsPayload is the payload for list_windows message
+type ListWindowsPayload struct {
+	SessionName string `json:"session_name"`
+}
+
+// ListWindowsResponse is the payload for list_windows_response
+type ListWindowsResponse struct {
+	SessionName string   `json:"session_name"`
+	Windows     []Window `json:"windows"`
+}
+
+// SwitchWindowPayload is the payload for switch_window message
+type SwitchWindowPayload struct {
+	SessionName string `json:"session_name"`
+	WindowIndex int    `json:"window_index"`
+}
+
+// SwitchWindowResponse is the payload for switch_window_response
+type SwitchWindowResponse struct {
+	Success     bool   `json:"success"`
+	SessionName string `json:"session_name"`
+	WindowIndex int    `json:"window_index"`
+	WindowName  string `json:"window_name"`
+}
+
+// CreateWindowPayload is the payload for create_window message
+type CreateWindowPayload struct {
+	SessionName string `json:"session_name"`
+	WindowName  string `json:"window_name,omitempty"`
+}
+
+// CreateWindowResponse is the payload for create_window_response
+type CreateWindowResponse struct {
+	Success     bool   `json:"success"`
+	SessionName string `json:"session_name"`
+	Window      Window `json:"window"`
+}
+
+// CloseWindowPayload is the payload for close_window message
+type CloseWindowPayload struct {
+	SessionName string `json:"session_name"`
+	WindowIndex int    `json:"window_index"`
+}
+
+// CloseWindowResponse is the payload for close_window_response
+type CloseWindowResponse struct {
+	Success     bool   `json:"success"`
+	SessionName string `json:"session_name"`
+	WindowIndex int    `json:"window_index"`
 }
 
 // ExecuteCommandPayload is the payload for execute_command message

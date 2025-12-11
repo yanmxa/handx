@@ -46,10 +46,14 @@ type TmuxManager interface {
 	ListSessions() ([]protocol.Session, error)
 	CreateSession(name string) (*protocol.Session, error)
 	KillSession(name string) error
+	RenameSession(oldName, newName string) error
 	ExecuteCommand(sessionName, command string) error
 	SendText(sessionName, text string) error
 	CaptureOutput(sessionName string) (string, error)
 	ListWindows(sessionName string) ([]protocol.Window, error)
+	CreateWindow(sessionName, windowName string) (*protocol.Window, error)
+	CloseWindow(sessionName string, windowIndex int) error
+	SwitchWindow(sessionName string, windowIndex int) (string, error)
 }
 
 // NewServer creates a new WebSocket server
@@ -232,6 +236,16 @@ func (c *Client) handleMessage(data []byte) {
 		c.handleCreateSession(&msg)
 	case protocol.TypeDeleteSession:
 		c.handleDeleteSession(&msg)
+	case protocol.TypeRenameSession:
+		c.handleRenameSession(&msg)
+	case protocol.TypeListWindows:
+		c.handleListWindows(&msg)
+	case protocol.TypeCreateWindow:
+		c.handleCreateWindow(&msg)
+	case protocol.TypeCloseWindow:
+		c.handleCloseWindow(&msg)
+	case protocol.TypeSwitchWindow:
+		c.handleSwitchWindow(&msg)
 	case protocol.TypeExecuteCommand:
 		c.handleExecuteCommand(&msg)
 	case protocol.TypeCaptureOutput:

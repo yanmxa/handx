@@ -57,8 +57,12 @@ func main() {
 		log.Printf("Failed to generate QR code: %v", err)
 	}
 
-	// Create tmux manager
-	tmuxManager, err := tmux.NewManager()
+	// Create tmux manager with history lines from config
+	historyLines := viper.GetInt("tmux.history_lines")
+	if historyLines <= 0 {
+		historyLines = 10000 // Default
+	}
+	tmuxManager, err := tmux.NewManager(historyLines)
 	if err != nil {
 		log.Fatalf("Failed to create tmux manager: %v", err)
 	}
@@ -104,6 +108,7 @@ func loadConfig() {
 	viper.SetDefault("server.host", "0.0.0.0")
 	viper.SetDefault("server.port", 8080)
 	viper.SetDefault("security.token_lifetime", "1h")
+	viper.SetDefault("tmux.history_lines", 10000)
 	viper.SetDefault("cors.allowed_origins", []string{"http://localhost:3000"})
 
 	if err := viper.ReadInConfig(); err != nil {

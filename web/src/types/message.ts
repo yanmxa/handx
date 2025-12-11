@@ -14,6 +14,18 @@ export enum MessageType {
   SWITCH_SESSION_RESPONSE = 'switch_session_response',
   DELETE_SESSION = 'delete_session',
   DELETE_SESSION_RESPONSE = 'delete_session_response',
+  RENAME_SESSION = 'rename_session',
+  RENAME_SESSION_RESPONSE = 'rename_session_response',
+
+  // Window Management
+  LIST_WINDOWS = 'list_windows',
+  LIST_WINDOWS_RESPONSE = 'list_windows_response',
+  CREATE_WINDOW = 'create_window',
+  CREATE_WINDOW_RESPONSE = 'create_window_response',
+  CLOSE_WINDOW = 'close_window',
+  CLOSE_WINDOW_RESPONSE = 'close_window_response',
+  SWITCH_WINDOW = 'switch_window',
+  SWITCH_WINDOW_RESPONSE = 'switch_window_response',
 
   // Command Execution
   EXECUTE_COMMAND = 'execute_command',
@@ -39,7 +51,7 @@ export interface Message<T = any> {
 
 // Payload types
 export interface ConnectPayload {
-  token: string;
+  token?: string; // Optional - auth disabled for now
   client_type: string;
   version: string;
 }
@@ -61,6 +73,69 @@ export interface CreateSessionPayload {
 export interface CreateSessionResponse {
   success: boolean;
   session?: Session;
+}
+
+export interface DeleteSessionPayload {
+  session_name: string;
+}
+
+export interface DeleteSessionResponse {
+  success: boolean;
+  session_name: string;
+}
+
+export interface RenameSessionPayload {
+  old_name: string;
+  new_name: string;
+}
+
+export interface RenameSessionResponse {
+  success: boolean;
+  old_name: string;
+  new_name: string;
+}
+
+export interface ListWindowsPayload {
+  session_name: string;
+}
+
+export interface ListWindowsResponse {
+  session_name: string;
+  windows: Window[];
+}
+
+export interface SwitchWindowPayload {
+  session_name: string;
+  window_index: number;
+}
+
+export interface SwitchWindowResponse {
+  success: boolean;
+  session_name: string;
+  window_index: number;
+  window_name: string;
+}
+
+export interface CreateWindowPayload {
+  session_name: string;
+  window_name?: string;
+}
+
+export interface CreateWindowResponse {
+  success: boolean;
+  session_name: string;
+  window: Window;
+}
+
+export interface CloseWindowPayload {
+  session_name: string;
+  window_index: number;
+}
+
+export interface CloseWindowResponse {
+  success: boolean;
+  session_name: string;
+  window_index: number;
 }
 
 export interface ExecuteCommandPayload {

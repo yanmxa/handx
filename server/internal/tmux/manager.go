@@ -15,18 +15,24 @@ var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 // Manager manages tmux sessions
 type Manager struct {
-	tmux *gotmux.Tmux
+	tmux         *gotmux.Tmux
+	historyLines int // Number of history lines to capture
 }
 
 // NewManager creates a new tmux manager
-func NewManager() (*Manager, error) {
+func NewManager(historyLines int) (*Manager, error) {
 	tmux, err := gotmux.DefaultTmux()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize tmux: %w", err)
 	}
 
+	if historyLines <= 0 {
+		historyLines = 10000 // Default to 10000 lines
+	}
+
 	return &Manager{
-		tmux: tmux,
+		tmux:         tmux,
+		historyLines: historyLines,
 	}, nil
 }
 
@@ -125,6 +131,31 @@ func (m *Manager) KillSession(name string) error {
 	}
 
 	return session.Kill()
+}
+
+// RenameSession renames a tmux session
+func (m *Manager) RenameSession(oldName, newName string) error {
+	// Check if old session exists
+	_, err := m.getSessionByName(oldName)
+	if err != nil {
+		return fmt.Errorf("session '%s' not found", oldName)
+	}
+
+	// Check if new name already exists
+	sessions, _ := m.tmux.ListSessions()
+	for _, s := range sessions {
+		if s.Name == newName {
+			return fmt.Errorf("session '%s' already exists", newName)
+		}
+	}
+
+	// Use tmux rename-session command
+	cmd := exec.Command("tmux", "rename-session", "-t", oldName, newName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to rename session: %s", string(output))
+	}
+	return nil
 }
 
 // getSessionByName finds a session by name
@@ -269,15 +300,22 @@ func (m *Manager) CaptureOutput(sessionName string) (string, error) {
 		return "", fmt.Errorf("no active pane found")
 	}
 
-	// Capture pane content
-	content, err := activePane.Capture()
+	// Capture pane content with full history using direct tmux command
+	// -p: print to stdout
+	// -e: include escape sequences (ANSI colors)
+	// -S -N: start from N lines back in history
+	cmd := exec.Command("tmux", "capture-pane", "-t", activePane.Id, "-p", "-e", "-S", fmt.Sprintf("-%d", m.historyLines))
+	output, err := cmd.Output()
 	if err != nil {
-		return "", err
+		// Fallback to gotmux's Capture if direct command fails
+		content, err := activePane.Capture()
+		if err != nil {
+			return "", err
+		}
+		return content, nil
 	}
 
-	// Keep ANSI codes for xterm.js to render colors properly
-	// But we could add an option to strip them if needed
-	return content, nil
+	return string(output), nil
 }
 
 // ListWindows lists windows in a session
@@ -288,4 +326,124 @@ func (m *Manager) ListWindows(sessionName string) ([]protocol.Window, error) {
 	}
 
 	return m.getSessionWindows(session)
+}
+
+// SwitchWindow switches to a specific window in a session
+func (m *Manager) SwitchWindow(sessionName string, windowIndex int) (string, error) {
+	session, err := m.getSessionByName(sessionName)
+	if err != nil {
+		return "", err
+	}
+
+	windows, err := session.ListWindows()
+	if err != nil {
+		return "", fmt.Errorf("failed to list windows: %w", err)
+	}
+
+	// Find window by index
+	var targetWindow *gotmux.Window
+	for _, w := range windows {
+		if w.Index == windowIndex {
+			targetWindow = w
+			break
+		}
+	}
+
+	if targetWindow == nil {
+		return "", fmt.Errorf("window index %d not found in session '%s'", windowIndex, sessionName)
+	}
+
+	// Use tmux select-window command to switch
+	cmd := exec.Command("tmux", "select-window", "-t", fmt.Sprintf("%s:%d", sessionName, windowIndex))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to switch window: %s", string(output))
+	}
+
+	return targetWindow.Name, nil
+}
+
+// CreateWindow creates a new window in a session
+func (m *Manager) CreateWindow(sessionName, windowName string) (*protocol.Window, error) {
+	session, err := m.getSessionByName(sessionName)
+	if err != nil {
+		return nil, err
+	}
+
+	// If windowName is empty, tmux will auto-generate a name
+	args := []string{"new-window", "-t", sessionName, "-P", "-F", "#{window_index}"}
+	if windowName != "" {
+		args = append(args, "-n", windowName)
+	}
+
+	cmd := exec.Command("tmux", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create window: %s", string(output))
+	}
+
+	// Get the newly created window index
+	windowIndex := 0
+	fmt.Sscanf(string(output), "%d", &windowIndex)
+
+	// Refresh windows list to get the new window
+	windows, err := session.ListWindows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list windows after creation: %w", err)
+	}
+
+	// Find the newly created window
+	for _, w := range windows {
+		if w.Index == windowIndex {
+			return &protocol.Window{
+				ID:      fmt.Sprintf("window-%s-%d", sessionName, w.Index),
+				Name:    w.Name,
+				Index:   w.Index,
+				Active:  w.Active,
+				PaneID:  fmt.Sprintf("%%pane-%d", w.Index),
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to find newly created window")
+}
+
+// CloseWindow closes a window in a session
+func (m *Manager) CloseWindow(sessionName string, windowIndex int) error {
+	session, err := m.getSessionByName(sessionName)
+	if err != nil {
+		return err
+	}
+
+	windows, err := session.ListWindows()
+	if err != nil {
+		return fmt.Errorf("failed to list windows: %w", err)
+	}
+
+	// Check if window exists
+	var targetWindow *gotmux.Window
+	for _, w := range windows {
+		if w.Index == windowIndex {
+			targetWindow = w
+			break
+		}
+	}
+
+	if targetWindow == nil {
+		return fmt.Errorf("window index %d not found in session '%s'", windowIndex, sessionName)
+	}
+
+	// Don't allow closing the last window
+	if len(windows) == 1 {
+		return fmt.Errorf("cannot close the last window in session '%s'", sessionName)
+	}
+
+	// Use tmux kill-window command
+	cmd := exec.Command("tmux", "kill-window", "-t", fmt.Sprintf("%s:%d", sessionName, windowIndex))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to close window: %s", string(output))
+	}
+
+	return nil
 }

@@ -11,6 +11,7 @@ security:
 tmux:
   default_shell: "/bin/zsh"
   capture_interval: "500ms"
+  history_lines: 10000  # Number of history lines to capture from tmux pane
 
 cors:
   allowed_origins:
