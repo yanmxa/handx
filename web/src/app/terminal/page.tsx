@@ -53,10 +53,11 @@ export default function TerminalPage() {
   const [mounted, setMounted] = useState(false); // Track if component is mounted (for hydration)
   const [terminalOutput, setTerminalOutput] = useState(''); // For mobile simple view
   const [headerVisible, setHeaderVisible] = useState(true); // Header visibility for mobile - default visible
-  const [wrapMode, setWrapMode] = useState<'wrap' | 'nowrap'>('wrap'); // Mobile line wrapping
-  const lastHeaderTapRef = useRef<number>(0); // Double-tap detection for header
+  const [wrapMode, setWrapMode] = useState<'wrap' | 'nowrap'>('nowrap'); // Mobile line wrapping
+  const lastScrollYRef = useRef<number>(0); // Track last scroll position
+  const scrollDirectionRef = useRef<'up' | 'down'>('down'); // Track scroll direction
   const [fontSize, setFontSize] = useState(13); // Terminal font size (default 13px for desktop, will be adjusted for mobile)
-  const [scrollbackLines, setScrollbackLines] = useState(50); // Terminal scrollback buffer size (Short mode default)
+  const [scrollbackLines, setScrollbackLines] = useState(100); // Terminal scrollback buffer size (Short mode default)
 
   // Mobile keyboard button states
   const [inputMode, setInputMode] = useState<'disabled' | 'active' | 'quickkeys'>('disabled');
@@ -184,11 +185,21 @@ export default function TerminalPage() {
     const savedScrollback = localStorage.getItem('handx_scrollback_lines');
     if (savedScrollback) {
       const lines = parseInt(savedScrollback, 10);
-      // Valid values: 50 (Short), 500 (Medium), 5000 (Full)
-      if (lines === 50 || lines === 500 || lines === 5000) {
+      // Valid values: 100 (Short), 500 (Medium), 5000 (Full)
+      if (lines === 100 || lines === 500 || lines === 5000) {
         setScrollbackLines(lines);
         scrollbackLinesRef.current = lines;
       }
+    }
+
+    // Load saved wrap mode (default to 'nowrap')
+    const savedWrapMode = localStorage.getItem('handx_wrap_mode');
+    if (savedWrapMode === 'wrap' || savedWrapMode === 'nowrap') {
+      setWrapMode(savedWrapMode);
+    } else {
+      // Ensure default is 'nowrap' and save it
+      setWrapMode('nowrap');
+      localStorage.setItem('handx_wrap_mode', 'nowrap');
     }
 
     // Load saved servers
@@ -206,7 +217,44 @@ export default function TerminalPage() {
     };
   }, []);
 
-  // Mobile keyboard tracking removed (no inline input)
+  // Auto hide/show header on scroll (mobile only)
+  useEffect(() => {
+    if (!isMobile || !mounted) return;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDelta = currentScrollY - lastScrollYRef.current;
+
+      // Always show header when at top of page
+      if (currentScrollY < 10) {
+        setHeaderVisible(true);
+        lastScrollYRef.current = currentScrollY;
+        return;
+      }
+
+      // Smaller threshold for faster response
+      const SCROLL_THRESHOLD = 3;
+
+      if (Math.abs(scrollDelta) > SCROLL_THRESHOLD) {
+        if (scrollDelta > 0) {
+          // Scrolling down - hide header
+          setHeaderVisible(false);
+          scrollDirectionRef.current = 'down';
+        } else {
+          // Scrolling up - show header
+          setHeaderVisible(true);
+          scrollDirectionRef.current = 'up';
+        }
+        lastScrollYRef.current = currentScrollY;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [isMobile, mounted, selectedSession]);
 
   // Toggle theme
   const toggleTheme = () => {
@@ -240,7 +288,7 @@ export default function TerminalPage() {
 
   // Scrollback modes: Short / Medium / Full
   const scrollbackModes = [
-    { name: 'Short', lines: 50 },
+    { name: 'Short', lines: 100 },
     { name: 'Medium', lines: 500 },
     { name: 'Full', lines: 5000 },
   ];
@@ -253,6 +301,20 @@ export default function TerminalPage() {
     localStorage.setItem('handx_scrollback_lines', newValue.toString());
     if (xtermRef.current) {
       xtermRef.current.options.scrollback = newValue;
+    }
+
+    // Immediately re-fetch output with new scrollback setting
+    if (ws && selectedSession && ws.isConnected) {
+      // Clear current output to avoid showing stale data
+      if (isMobileRef.current) {
+        setTerminalOutput('');
+      } else if (xtermRef.current) {
+        xtermRef.current.clear();
+      }
+      lastOutputRef.current = '';
+
+      // Request fresh output with new line limit
+      ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name });
     }
   };
   const getScrollbackModeName = () => {
@@ -452,8 +514,8 @@ export default function TerminalPage() {
         if (payload.output !== lastOutputRef.current) {
           let output = payload.output;
 
-          // Limit output based on scrollbackLines setting
-          if (scrollbackLinesRef.current > 0 && scrollbackLinesRef.current < 500) {
+          // Limit output based on scrollbackLines setting (always apply the limit)
+          if (scrollbackLinesRef.current > 0) {
             const lines = output.split('\n');
             if (lines.length > scrollbackLinesRef.current) {
               output = lines.slice(-scrollbackLinesRef.current).join('\n');
@@ -791,16 +853,6 @@ export default function TerminalPage() {
     router.push('/');
   };
 
-  // Mobile: toggle header via double tap instead of a visible arrow button
-  const handleHeaderTap = () => {
-    if (!isMobile) return;
-    const now = Date.now();
-    if (now - lastHeaderTapRef.current < 350) {
-      setHeaderVisible((visible) => !visible);
-    }
-    lastHeaderTapRef.current = now;
-  };
-
   // Prevent hydration mismatch by showing loading state until mounted
   if (!mounted) {
     return (
@@ -811,11 +863,11 @@ export default function TerminalPage() {
   }
 
   return (
-    <div className={`min-h-screen ${themes[theme].bg} ${themes[theme].text} flex flex-col touch-pan-y overscroll-none`}>
+    <div className={`${isMobile ? 'min-h-screen' : 'min-h-screen flex flex-col'} ${themes[theme].bg} ${themes[theme].text} touch-pan-y overscroll-none`}>
       {/* Header - Sticky on mobile, collapsible */}
-      <div className={`sticky top-0 z-30 ${themes[theme].header} transition-all duration-500 ease-in-out relative ${
-        isMobile && !headerVisible ? 'h-0 overflow-hidden p-0 opacity-0' : 'p-2 md:p-4 opacity-100'
-      }`} onClick={isMobile ? handleHeaderTap : undefined}>
+      <div className={`sticky top-0 z-30 ${themes[theme].header} transition-all duration-300 ease-in-out relative ${
+        isMobile && !headerVisible ? '-translate-y-full opacity-0' : 'translate-y-0 p-2 md:p-4 opacity-100'
+      } ${!isMobile ? 'p-2 md:p-4' : ''}`}>
         {/* Subtle gradient border bottom */}
         <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-neutral-700/50 to-transparent" />
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -880,7 +932,7 @@ export default function TerminalPage() {
                 aria-label="Settings"
                 title="Settings"
               >
-                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
@@ -901,13 +953,13 @@ export default function TerminalPage() {
                     ${theme === 'dark' ? 'bg-neutral-900 border border-neutral-800' : 'bg-white border border-slate-200'}
                   `}>
                     {/* Settings Header */}
-                    <div className={`px-3 py-2 border-b ${theme === 'dark' ? 'border-neutral-800' : 'border-slate-200'}`}>
-                      <span className={`text-xs font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                    <div className={`px-3 py-2.5 border-b ${theme === 'dark' ? 'border-neutral-800' : 'border-slate-200'}`}>
+                      <span className={`text-sm font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
                         Settings
                       </span>
                     </div>
 
-                    <div className="p-2 space-y-1">
+                    <div className="p-2.5 space-y-1.5">
                       {/* Theme Control */}
                       <button
                         onClick={toggleTheme}
@@ -934,8 +986,9 @@ export default function TerminalPage() {
                       </button>
 
                       {/* Font Size Control */}
-                      <div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-neutral-800/50' : 'bg-slate-50'}`}>
-                        <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <div className={`w-full flex items-center justify-between p-2 rounded-lg
+                          ${theme === 'dark' ? 'bg-neutral-800/30' : 'bg-slate-50'}`}>
                           <div className="flex items-center gap-2">
                             <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" />
@@ -944,33 +997,34 @@ export default function TerminalPage() {
                               Font Size
                             </span>
                           </div>
-                          <span className={`text-xs font-mono px-1.5 py-0.5 rounded ${theme === 'dark' ? 'bg-neutral-700 text-neutral-300' : 'bg-slate-200 text-neutral-700'}`}>
+                          <span className={`text-xs font-mono px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-neutral-700 text-neutral-300' : 'bg-slate-200 text-neutral-700'}`}>
                             {fontSize}px
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        {/* Adjustment buttons - indented */}
+                        <div className="flex items-center gap-1.5 pl-7 pr-2 pb-1.5 pt-1.5">
                           <button
                             onClick={() => adjustFontSize(-1)}
                             disabled={fontSize <= 8}
-                            className={`flex-1 py-1.5 rounded-md transition-all duration-150 touch-manipulation select-none
+                            className={`flex-1 py-1 rounded-md transition-all duration-150 touch-manipulation select-none
                               ${theme === 'dark' ? 'bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-500' : 'bg-slate-200 hover:bg-slate-300 active:bg-slate-400'}
                               ${fontSize <= 8 ? 'opacity-30 cursor-not-allowed' : 'active:scale-95'}`}
                           >
-                            <svg className={`w-3.5 h-3.5 mx-auto ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className={`w-3 h-3 mx-auto ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                             </svg>
                           </button>
-                          <div className={`flex-1 py-1.5 text-center font-mono text-xs rounded-md ${theme === 'dark' ? 'bg-neutral-900/50 text-neutral-300' : 'bg-white text-neutral-700'}`}>
+                          <div className={`flex-1 py-1 text-center font-mono text-xs rounded-md ${theme === 'dark' ? 'bg-neutral-800/50 text-neutral-400' : 'bg-slate-100 text-neutral-600'}`}>
                             {fontSize}
                           </div>
                           <button
                             onClick={() => adjustFontSize(1)}
                             disabled={fontSize >= 24}
-                            className={`flex-1 py-1.5 rounded-md transition-all duration-150 touch-manipulation select-none
+                            className={`flex-1 py-1 rounded-md transition-all duration-150 touch-manipulation select-none
                               ${theme === 'dark' ? 'bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-500' : 'bg-slate-200 hover:bg-slate-300 active:bg-slate-400'}
                               ${fontSize >= 24 ? 'opacity-30 cursor-not-allowed' : 'active:scale-95'}`}
                           >
-                            <svg className={`w-3.5 h-3.5 mx-auto ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className={`w-3 h-3 mx-auto ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                             </svg>
                           </button>
@@ -998,7 +1052,11 @@ export default function TerminalPage() {
 
                       {/* Wrap Control */}
                       <button
-                        onClick={() => setWrapMode(mode => mode === 'wrap' ? 'nowrap' : 'wrap')}
+                        onClick={() => {
+                          const newMode = wrapMode === 'wrap' ? 'nowrap' : 'wrap';
+                          setWrapMode(newMode);
+                          localStorage.setItem('handx_wrap_mode', newMode);
+                        }}
                         className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors
                           ${theme === 'dark' ? 'hover:bg-neutral-800' : 'hover:bg-slate-100'}`}
                       >
@@ -1030,16 +1088,6 @@ export default function TerminalPage() {
         </div>
       </div>
 
-      {/* Mobile: Header toggle bar - only show when header is hidden (double tap to restore) */}
-      {isMobile && !headerVisible && (
-        <div
-          onClick={handleHeaderTap}
-          className={`py-1 px-4 text-[11px] flex items-center justify-center cursor-pointer active:bg-opacity-30 transition-all duration-300 touch-manipulation select-none bg-opacity-0 hover:bg-opacity-10 ${themes[theme].header}`}
-        >
-          <span className={`${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>双击显示顶部栏</span>
-        </div>
-      )}
-
       {/* Error Display */}
       {error && (
         <div className="bg-red-900 border-b border-red-700 text-red-100 px-4 py-2 text-sm">
@@ -1047,7 +1095,7 @@ export default function TerminalPage() {
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className={`${isMobile ? 'flex' : 'flex-1 flex overflow-hidden'} relative`}>
         {/* Mobile Overlay - transparent */}
         {sidebarOpen && (
           <div
@@ -1274,7 +1322,7 @@ export default function TerminalPage() {
         </div>
 
         {/* Main Terminal Area */}
-        <div className={`flex-1 flex flex-col ${themes[theme].bg} min-w-0 overflow-hidden`}>
+        <div className={`${isMobile ? 'flex flex-col w-full' : 'flex-1 flex flex-col overflow-hidden'} ${themes[theme].bg} min-w-0`}>
           {/* Window Tabs - show when session has multiple windows */}
           {selectedSession && windows.length > 1 && (
             <div className={`flex items-center gap-1.5 px-2 md:px-3 py-2 overflow-x-auto scrollbar-hide ${theme === 'dark' ? 'bg-neutral-900/80' : 'bg-slate-100/80'} border-b ${theme === 'dark' ? 'border-neutral-800' : 'border-slate-200'}`}>
@@ -1303,16 +1351,18 @@ export default function TerminalPage() {
           )}
 
           {/* Terminal Display */}
-          <div className="flex-1 p-2 md:p-4 overflow-hidden min-w-0">
+          <div className={`p-2 md:p-4 min-w-0 ${isMobile ? '' : 'flex-1 overflow-hidden'}`}>
             {isMobile ? (
               /* Mobile: Simple HTML view with inline input */
               <div
                 ref={mobileTerminalRef}
-                className={`h-full w-full overflow-y-auto font-mono leading-tight ${wrapMode === 'nowrap' ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
+                className={`w-full font-mono leading-tight ${wrapMode === 'nowrap' ? 'overflow-x-auto' : ''}`}
                 style={{
                   backgroundColor: themes[theme].terminal.background,
                   color: themes[theme].terminal.foreground,
                   fontSize: `${fontSize}px`,
+                  minHeight: '100vh',
+                  paddingBottom: '100px',
                 }}
               >
                 {/* Terminal content */}
@@ -1495,10 +1545,10 @@ export default function TerminalPage() {
                 <button
                   onClick={() => {
                     if (ws && selectedSession) {
-                      // Send Esc command
+                      // Send Escape key
                       ws.send(MessageType.EXECUTE_COMMAND, {
                         session_name: selectedSession.name,
-                        command: '\x1b',
+                        command: 'Escape',
                       });
 
                       // Show command in mobile terminal
@@ -1568,10 +1618,10 @@ export default function TerminalPage() {
                 <button
                   onClick={() => {
                     if (ws && selectedSession) {
-                      // Send Enter command
+                      // Send Enter key
                       ws.send(MessageType.EXECUTE_COMMAND, {
                         session_name: selectedSession.name,
-                        command: '',
+                        command: 'Enter',
                       });
 
                       // Show command in mobile terminal

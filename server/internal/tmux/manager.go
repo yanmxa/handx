@@ -205,6 +205,12 @@ func (m *Manager) ExecuteCommand(sessionName, command string) error {
 		activePane = panes[0]
 	}
 
+	// Handle special keys (send directly without -l flag and without Enter)
+	if command == "Escape" || command == "Enter" || command == "Tab" {
+		cmd := exec.Command("tmux", "send-keys", "-t", activePane.Id, command)
+		return cmd.Run()
+	}
+
 	// Use tmux send-keys directly with C-m (Ctrl+M = Enter) to ensure command execution
 	// First send the command text in literal mode, then send C-m (Enter)
 	cmd1 := exec.Command("tmux", "send-keys", "-t", activePane.Id, "-l", command)
