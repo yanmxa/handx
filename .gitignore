@@ -21,4 +21,7 @@ test-connection.html
 # Ignore shared directory
 shared/
 
+# Ignore compiled binaries
+server/bin/
+
 # Keep README.md (not ignored)
