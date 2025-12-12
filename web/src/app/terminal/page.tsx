@@ -237,9 +237,19 @@ export default function TerminalPage() {
       const currentScrollY = window.scrollY;
       const scrollDelta = currentScrollY - lastScrollYRef.current;
 
+      // Check if near bottom of page (within 100px)
+      const isNearBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 100);
+
       // Always show header when at top of page
       if (currentScrollY < 10) {
         setHeaderVisible(true);
+        lastScrollYRef.current = currentScrollY;
+        return;
+      }
+
+      // Always hide header when near bottom (including bounce back)
+      if (isNearBottom) {
+        setHeaderVisible(false);
         lastScrollYRef.current = currentScrollY;
         return;
       }
@@ -253,9 +263,12 @@ export default function TerminalPage() {
           setHeaderVisible(false);
           scrollDirectionRef.current = 'down';
         } else {
-          // Scrolling up - show header
-          setHeaderVisible(true);
-          scrollDirectionRef.current = 'up';
+          // Scrolling up - show header only if NOT near bottom
+          // This prevents header from showing during bounce-back at bottom
+          if (!isNearBottom) {
+            setHeaderVisible(true);
+            scrollDirectionRef.current = 'up';
+          }
         }
         lastScrollYRef.current = currentScrollY;
       }
