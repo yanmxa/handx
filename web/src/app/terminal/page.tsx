@@ -66,6 +66,8 @@ export default function TerminalPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const keyboardLongPressRef = useRef<NodeJS.Timeout | null>(null);
+  const [mobileInputType, setMobileInputType] = useState<'floating' | 'touchscreen'>('floating'); // Mobile input mode type
+  const lastTapTimeRef = useRef<number>(0); // For double-tap detection
 
   // Long press state for mobile session deletion
   const [longPressSessionId, setLongPressSessionId] = useState<string | null>(null);
@@ -201,6 +203,15 @@ export default function TerminalPage() {
       // Ensure default is 'nowrap' and save it
       setWrapMode('nowrap');
       localStorage.setItem('handx_wrap_mode', 'nowrap');
+    }
+
+    // Load saved mobile input type (default to 'floating')
+    const savedMobileInputType = localStorage.getItem('handx_mobile_input_type');
+    if (savedMobileInputType === 'floating' || savedMobileInputType === 'touchscreen') {
+      setMobileInputType(savedMobileInputType);
+    } else {
+      setMobileInputType('floating');
+      localStorage.setItem('handx_mobile_input_type', 'floating');
     }
 
     // Load saved servers
@@ -1085,6 +1096,33 @@ export default function TerminalPage() {
                           {wrapMode === 'wrap' ? 'On' : 'Off'}
                         </span>
                       </button>
+
+                      {/* Mobile Input Type (mobile only) */}
+                      {isMobile && (
+                        <button
+                          onClick={() => {
+                            const newType = mobileInputType === 'floating' ? 'touchscreen' : 'floating';
+                            setMobileInputType(newType);
+                            localStorage.setItem('handx_mobile_input_type', newType);
+                            // Reset input mode when switching
+                            setInputMode('disabled');
+                          }}
+                          className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors
+                            ${theme === 'dark' ? 'hover:bg-neutral-800' : 'hover:bg-slate-100'}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <span className={`text-sm ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                              Input Mode
+                            </span>
+                          </div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-neutral-700 text-neutral-300' : 'bg-slate-200 text-neutral-700'}`}>
+                            {mobileInputType === 'floating' ? 'Floating' : 'Touchscreen'}
+                          </span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </>
@@ -1408,27 +1446,33 @@ export default function TerminalPage() {
                 {inputMode === 'active' && selectedSession && !sidebarOpen && (
                   <div className="px-2 pb-2">
                     {/* Input field */}
-                    <div className={`rounded-full px-1 py-1 ${theme === 'dark' ? 'bg-neutral-800/90' : 'bg-white/90'} backdrop-blur-xl shadow-lg border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
-                      <form onSubmit={handleSendCommand} className="flex items-center gap-2">
-                        <input
-                          type="text"
+                    <div className={`rounded-2xl px-1 py-1 ${theme === 'dark' ? 'bg-neutral-800/90' : 'bg-white/90'} backdrop-blur-xl shadow-lg border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
+                      <form onSubmit={handleSendCommand} className="flex items-start gap-2">
+                        <textarea
                           value={command}
                           onChange={(e) => setCommand(e.target.value)}
-                          onKeyDown={handleKeyDown}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendCommand(e);
+                            }
+                          }}
                           onBlur={() => {
                             setTimeout(() => {
                               setInputMode('disabled');
                             }, 150);
                           }}
-                          placeholder="Enter command..."
-                          style={{ fontSize: '16px' }}
+                          placeholder="Enter command... (Shift+Enter for new line)"
+                          rows={Math.min(Math.max(command.split('\n').length, 1), 8)}
+                          style={{ fontSize: '16px', resize: 'none' }}
                           className={`flex-1 px-4 py-2
                             bg-transparent
                             ${themes[theme].text}
                             ${theme === 'dark' ? 'placeholder-neutral-500' : 'placeholder-neutral-400'}
                             outline-none
                             touch-manipulation
-                            font-sans text-base`}
+                            font-mono text-base
+                            max-h-48 overflow-y-auto`}
                           autoComplete="off"
                           autoFocus
                         />
@@ -1476,8 +1520,8 @@ export default function TerminalPage() {
           {/* Desktop spacer */}
           {selectedSession && !sidebarOpen && !isMobile && <div className="h-24"></div>}
 
-          {/* Mobile: Draggable keyboard button - only in disabled mode */}
-          {isMobile && selectedSession && !sidebarOpen && inputMode === 'disabled' && (
+          {/* Mobile: Draggable keyboard button - only in disabled mode and floating mode */}
+          {isMobile && selectedSession && !sidebarOpen && inputMode === 'disabled' && mobileInputType === 'floating' && (
             <div
               className="fixed z-20 touch-none select-none"
               style={{
@@ -1679,6 +1723,184 @@ export default function TerminalPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Touchscreen Mode: Bottom trigger area */}
+          {isMobile && selectedSession && !sidebarOpen && mobileInputType === 'touchscreen' && inputMode === 'disabled' && (
+            <div
+              className="fixed bottom-0 left-0 right-0 z-20 h-16 flex items-center justify-center backdrop-blur-sm"
+              style={{
+                background: theme === 'dark'
+                  ? 'linear-gradient(to top, rgba(23, 23, 23, 0.95), rgba(23, 23, 23, 0))'
+                  : 'linear-gradient(to top, rgba(248, 250, 252, 0.95), rgba(248, 250, 252, 0))'
+              }}
+              onClick={() => {
+                const now = Date.now();
+                const timeSinceLastTap = now - lastTapTimeRef.current;
+
+                if (timeSinceLastTap < 300) {
+                  // Double tap - show quick keys
+                  setInputMode('quickkeys');
+                  lastTapTimeRef.current = 0;
+                } else {
+                  // Single tap - show input
+                  setInputMode('active');
+                  lastTapTimeRef.current = now;
+                }
+              }}
+            >
+              <div className={`px-6 py-2 rounded-full ${theme === 'dark' ? 'bg-neutral-800/80' : 'bg-white/80'} border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'} shadow-lg backdrop-blur-md`}>
+                <div className="flex items-center gap-2">
+                  <svg className={`w-4 h-4 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  <span className={`text-sm ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                    Tap to type • Double tap for keys
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Touchscreen Mode: Quick keys panel (center bottom) */}
+          {isMobile && selectedSession && !sidebarOpen && mobileInputType === 'touchscreen' && inputMode === 'quickkeys' && (
+            <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-20">
+              <div className={`flex flex-col gap-2 p-3 rounded-2xl shadow-2xl backdrop-blur-md
+                ${theme === 'dark' ? 'bg-neutral-800/95' : 'bg-white/95'}
+                border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}
+              >
+                {/* Window switcher (if multiple windows) */}
+                {windows.length > 1 && (
+                  <div className={`flex items-center gap-1.5 pb-2 border-b ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
+                    <svg className={`w-3.5 h-3.5 flex-shrink-0 ${theme === 'dark' ? 'text-neutral-500' : 'text-neutral-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                    </svg>
+                    {windows.map((win) => (
+                      <button
+                        key={win.id}
+                        onClick={() => {
+                          handleSwitchWindow(win.index);
+                          setInputMode('disabled');
+                        }}
+                        className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200 touch-manipulation select-none active:scale-90
+                          ${activeWindowIndex === win.index
+                            ? theme === 'dark'
+                              ? 'bg-neutral-600 text-neutral-100'
+                              : 'bg-neutral-700 text-white'
+                            : theme === 'dark'
+                            ? 'bg-neutral-700/50 text-neutral-400 active:bg-neutral-600'
+                            : 'bg-neutral-200 text-neutral-600 active:bg-neutral-300'
+                          }`}
+                      >
+                        <span className="font-mono">{win.index}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Quick keys row */}
+                <div className="flex items-center gap-1.5">
+                  {/* Esc */}
+                  <button
+                    onClick={() => {
+                      if (ws && selectedSession) {
+                        ws.send(MessageType.EXECUTE_COMMAND, {
+                          session_name: selectedSession.name,
+                          command: 'Escape',
+                          window_index: activeWindowIndex,
+                        });
+                        setTerminalOutput((prev) => prev + `$ [ESC]\n`);
+                        setTimeout(() => {
+                          if (ws && selectedSession) {
+                            ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
+                          }
+                        }, 100);
+                        setTimeout(() => setInputMode('disabled'), 100);
+                      }
+                    }}
+                    className={`px-2.5 h-10 rounded-xl font-mono text-xs font-bold
+                      transition-all duration-150 touch-manipulation select-none active:scale-90
+                      ${theme === 'dark'
+                        ? 'bg-neutral-600 text-neutral-300 active:bg-neutral-500'
+                        : 'bg-neutral-300 text-neutral-600 active:bg-neutral-400'
+                      }`}
+                  >
+                    Esc
+                  </button>
+                  {/* 1, 2, 3 */}
+                  {['1', '2', '3'].map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        if (ws && selectedSession) {
+                          ws.send(MessageType.EXECUTE_COMMAND, {
+                            session_name: selectedSession.name,
+                            command: key,
+                            window_index: activeWindowIndex,
+                          });
+                          setTerminalOutput((prev) => prev + `$ ${key}\n`);
+                          setTimeout(() => {
+                            if (ws && selectedSession) {
+                              ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
+                            }
+                          }, 100);
+                          setTimeout(() => setInputMode('disabled'), 100);
+                        }
+                      }}
+                      className={`w-10 h-10 rounded-xl font-mono font-bold text-base
+                        transition-all duration-150 touch-manipulation select-none active:scale-90
+                        ${theme === 'dark'
+                          ? 'bg-neutral-700 text-neutral-200 active:bg-neutral-600'
+                          : 'bg-neutral-200 text-neutral-700 active:bg-neutral-300'
+                        }`}
+                    >
+                      {key}
+                    </button>
+                  ))}
+                  {/* Enter */}
+                  <button
+                    onClick={() => {
+                      if (ws && selectedSession) {
+                        ws.send(MessageType.EXECUTE_COMMAND, {
+                          session_name: selectedSession.name,
+                          command: 'Enter',
+                          window_index: activeWindowIndex,
+                        });
+                        setTerminalOutput((prev) => prev + `$ [Enter]\n`);
+                        setTimeout(() => {
+                          if (ws && selectedSession) {
+                            ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
+                          }
+                        }, 100);
+                        setTimeout(() => setInputMode('disabled'), 100);
+                      }
+                    }}
+                    className={`w-10 h-10 rounded-xl font-mono text-lg font-bold
+                      transition-all duration-150 touch-manipulation select-none active:scale-90
+                      ${theme === 'dark'
+                        ? 'bg-neutral-700 text-neutral-200 active:bg-neutral-600'
+                        : 'bg-neutral-200 text-neutral-700 active:bg-neutral-300'
+                      }`}
+                  >
+                    ↵
+                  </button>
+                  {/* Close button */}
+                  <button
+                    onClick={() => setInputMode('disabled')}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center
+                      transition-all duration-150 touch-manipulation select-none active:scale-90
+                      ${theme === 'dark'
+                        ? 'bg-neutral-900/50 text-neutral-500 active:bg-neutral-800'
+                        : 'bg-neutral-100 text-neutral-400 active:bg-neutral-200'
+                      }`}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           )}
