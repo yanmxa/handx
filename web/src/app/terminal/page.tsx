@@ -34,6 +34,7 @@ export default function TerminalPage() {
   const lastOutputRef = useRef<string>(''); // Track last output for diff
   const isMobileRef = useRef<boolean>(false); // Ref for mobile detection (for closures)
   const scrollbackLinesRef = useRef<number>(50); // Ref for scrollback lines (for closures)
+  const activeWindowIndexRef = useRef<number>(0); // Ref for active window index (for closures)
   const mobileTerminalRef = useRef<HTMLDivElement>(null); // Ref for mobile terminal container
 
   const [ws, setWs] = useState<WebSocketClient | null>(null);
@@ -461,7 +462,9 @@ export default function TerminalPage() {
           setSelectedSession(session);
           setWindows(session.windows || []);
           const activeWin = session.windows?.find(w => w.active);
-          setActiveWindowIndex(activeWin?.index || 0);
+          const winIndex = activeWin?.index || 0;
+          setActiveWindowIndex(winIndex);
+          activeWindowIndexRef.current = winIndex;
           // Request fresh windows list
           client.send(MessageType.LIST_WINDOWS, { session_name: session.name });
         }
@@ -587,6 +590,7 @@ export default function TerminalPage() {
       const activeWin = payload.windows.find(w => w.active);
       if (activeWin) {
         setActiveWindowIndex(activeWin.index);
+        activeWindowIndexRef.current = activeWin.index;
       }
     });
 
@@ -595,6 +599,7 @@ export default function TerminalPage() {
       const payload = message.payload as SwitchWindowResponse;
       if (payload.success) {
         setActiveWindowIndex(payload.window_index);
+        activeWindowIndexRef.current = payload.window_index;
         // Clear terminal and reset output when switching windows
         if (isMobileRef.current) {
           setTerminalOutput('');
@@ -604,6 +609,11 @@ export default function TerminalPage() {
         lastOutputRef.current = '';
         // Refresh window list
         client.send(MessageType.LIST_WINDOWS, { session_name: payload.session_name });
+        // Immediately capture output from the new window
+        client.send(MessageType.CAPTURE_OUTPUT, {
+          session_name: payload.session_name,
+          window_index: payload.window_index
+        });
       }
     });
 
@@ -645,11 +655,11 @@ export default function TerminalPage() {
 
     // Start new interval to capture output every 1 second
     outputIntervalRef.current = setInterval(() => {
-      ws.send(MessageType.CAPTURE_OUTPUT, { session_name: sessionName, window_index: activeWindowIndex });
+      ws.send(MessageType.CAPTURE_OUTPUT, { session_name: sessionName, window_index: activeWindowIndexRef.current });
     }, 1000);
 
     // Capture immediately
-    ws.send(MessageType.CAPTURE_OUTPUT, { session_name: sessionName, window_index: activeWindowIndex });
+    ws.send(MessageType.CAPTURE_OUTPUT, { session_name: sessionName, window_index: activeWindowIndexRef.current });
   };
 
   const stopOutputCapture = () => {
@@ -683,7 +693,9 @@ export default function TerminalPage() {
     // Reset windows
     setWindows(session.windows || []);
     const activeWin = session.windows?.find(w => w.active);
-    setActiveWindowIndex(activeWin?.index || 0);
+    const winIndex = activeWin?.index || 0;
+    setActiveWindowIndex(winIndex);
+    activeWindowIndexRef.current = winIndex;
     // Request fresh windows list
     if (ws) {
       ws.send(MessageType.LIST_WINDOWS, { session_name: session.name });
