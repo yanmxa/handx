@@ -36,6 +36,7 @@ export default function TerminalPage() {
   const scrollbackLinesRef = useRef<number>(50); // Ref for scrollback lines (for closures)
   const activeWindowIndexRef = useRef<number>(0); // Ref for active window index (for closures)
   const mobileTerminalRef = useRef<HTMLDivElement>(null); // Ref for mobile terminal container
+  const textareaRef = useRef<HTMLTextAreaElement>(null); // Ref for auto-resizing textarea
 
   const [ws, setWs] = useState<WebSocketClient | null>(null);
   const [connected, setConnected] = useState(false);
@@ -280,6 +281,24 @@ export default function TerminalPage() {
       window.removeEventListener('scroll', handleScroll);
     };
   }, [isMobile, mounted, selectedSession]);
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    // If command is empty, set to minimum height (one line)
+    if (!command.trim()) {
+      textarea.style.height = '24px';
+      return;
+    }
+
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    // Set height based on scrollHeight (content height)
+    const newHeight = Math.min(textarea.scrollHeight, 256); // Max 256px
+    textarea.style.height = `${newHeight}px`;
+  }, [command]); // Re-run when command changes
 
   // Toggle theme
   const toggleTheme = () => {
@@ -1681,6 +1700,7 @@ export default function TerminalPage() {
               <div className={`rounded-2xl px-3 py-3 ${theme === 'dark' ? 'bg-neutral-800/95' : 'bg-white/95'} backdrop-blur-xl shadow-2xl border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
                 <form onSubmit={handleSendCommand} className="flex items-end gap-2">
                   <textarea
+                    ref={textareaRef}
                     value={command}
                     onChange={(e) => setCommand(e.target.value)}
                     onKeyDown={(e) => {
@@ -1695,16 +1715,21 @@ export default function TerminalPage() {
                       }, 150);
                     }}
                     placeholder="Enter command... (Shift+Enter for new line)"
-                    rows={Math.min(Math.max(command.split('\n').length, 1), 8)}
-                    style={{ fontSize: '16px', resize: 'none' }}
+                    style={{
+                      fontSize: '16px',
+                      resize: 'none',
+                      minHeight: '24px',
+                      maxHeight: '256px',
+                      overflowY: 'auto',
+                      lineHeight: '1.5'
+                    }}
                     className={`flex-1 px-0 py-0
                       bg-transparent
                       ${themes[theme].text}
                       ${theme === 'dark' ? 'placeholder-neutral-500' : 'placeholder-neutral-400'}
                       outline-none
                       touch-manipulation
-                      font-mono text-base
-                      max-h-64`}
+                      font-mono text-base`}
                     autoComplete="off"
                     autoFocus
                   />
