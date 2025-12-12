@@ -156,6 +156,7 @@ export interface TerminalOutputPayload {
 
 export interface CaptureOutputPayload {
   session_name: string;
+  window_index?: number;
 }
 
 export interface CaptureOutputResponse {

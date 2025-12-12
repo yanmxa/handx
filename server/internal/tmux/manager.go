@@ -263,33 +263,48 @@ func stripANSI(str string) string {
 	return ansiEscapeRegex.ReplaceAllString(str, "")
 }
 
-// CaptureOutput captures the output of a session's active pane
-func (m *Manager) CaptureOutput(sessionName string) (string, error) {
+// CaptureOutput captures the output of a session's pane
+// If windowIndex is provided, captures from that window; otherwise captures from active window
+func (m *Manager) CaptureOutput(sessionName string, windowIndex *int) (string, error) {
 	session, err := m.getSessionByName(sessionName)
 	if err != nil {
 		return "", err
 	}
 
-	// Get active window
+	// Get windows
 	windows, err := session.ListWindows()
 	if err != nil {
 		return "", err
 	}
 
-	var activeWindow *gotmux.Window
-	for _, w := range windows {
-		if w.Active {
-			activeWindow = w
-			break
+	var targetWindow *gotmux.Window
+
+	// If window index is specified, find that window
+	if windowIndex != nil {
+		for _, w := range windows {
+			if w.Index == *windowIndex {
+				targetWindow = w
+				break
+			}
+		}
+		if targetWindow == nil {
+			return "", fmt.Errorf("window index %d not found in session '%s'", *windowIndex, sessionName)
+		}
+	} else {
+		// Otherwise, use active window
+		for _, w := range windows {
+			if w.Active {
+				targetWindow = w
+				break
+			}
+		}
+		if targetWindow == nil {
+			return "", fmt.Errorf("no active window found")
 		}
 	}
 
-	if activeWindow == nil {
-		return "", fmt.Errorf("no active window found")
-	}
-
-	// Get active pane
-	panes, err := activeWindow.ListPanes()
+	// Get active pane from target window
+	panes, err := targetWindow.ListPanes()
 	if err != nil {
 		return "", err
 	}
@@ -303,7 +318,7 @@ func (m *Manager) CaptureOutput(sessionName string) (string, error) {
 	}
 
 	if activePane == nil {
-		return "", fmt.Errorf("no active pane found")
+		return "", fmt.Errorf("no active pane found in target window")
 	}
 
 	// Capture pane content with full history using direct tmux command

@@ -140,9 +140,13 @@ func (c *Client) handleCaptureOutput(msg *protocol.Message) {
 		return
 	}
 
-	log.Printf("Capture output: session=%s", payload.SessionName)
+	if payload.WindowIndex != nil {
+		log.Printf("Capture output: session=%s, window=%d", payload.SessionName, *payload.WindowIndex)
+	} else {
+		log.Printf("Capture output: session=%s", payload.SessionName)
+	}
 
-	output, err := c.server.tmuxManager.CaptureOutput(payload.SessionName)
+	output, err := c.server.tmuxManager.CaptureOutput(payload.SessionName, payload.WindowIndex)
 	if err != nil {
 		log.Printf("Failed to capture output: %v", err)
 		c.sendError(protocol.ErrorTmuxError, fmt.Sprintf("Failed to capture output: %v", err), msg.ID)

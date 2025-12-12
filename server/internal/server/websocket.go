@@ -49,7 +49,7 @@ type TmuxManager interface {
 	RenameSession(oldName, newName string) error
 	ExecuteCommand(sessionName, command string) error
 	SendText(sessionName, text string) error
-	CaptureOutput(sessionName string) (string, error)
+	CaptureOutput(sessionName string, windowIndex *int) (string, error)
 	ListWindows(sessionName string) ([]protocol.Window, error)
 	CreateWindow(sessionName, windowName string) (*protocol.Window, error)
 	CloseWindow(sessionName string, windowIndex int) error

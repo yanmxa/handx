@@ -212,6 +212,7 @@ type TerminalOutputPayload struct {
 // CaptureOutputPayload is the payload for capture_output message
 type CaptureOutputPayload struct {
 	SessionName string `json:"session_name"`
+	WindowIndex *int   `json:"window_index,omitempty"` // Optional: specific window to capture
 }
 
 // CaptureOutputResponse is the payload for capture_output_response

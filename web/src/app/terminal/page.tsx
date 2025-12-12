@@ -314,7 +314,7 @@ export default function TerminalPage() {
       lastOutputRef.current = '';
 
       // Request fresh output with new line limit
-      ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name });
+      ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
     }
   };
   const getScrollbackModeName = () => {
@@ -645,11 +645,11 @@ export default function TerminalPage() {
 
     // Start new interval to capture output every 1 second
     outputIntervalRef.current = setInterval(() => {
-      ws.send(MessageType.CAPTURE_OUTPUT, { session_name: sessionName });
+      ws.send(MessageType.CAPTURE_OUTPUT, { session_name: sessionName, window_index: activeWindowIndex });
     }, 1000);
 
     // Capture immediately
-    ws.send(MessageType.CAPTURE_OUTPUT, { session_name: sessionName });
+    ws.send(MessageType.CAPTURE_OUTPUT, { session_name: sessionName, window_index: activeWindowIndex });
   };
 
   const stopOutputCapture = () => {
@@ -803,7 +803,7 @@ export default function TerminalPage() {
     // Capture output after a short delay
     setTimeout(() => {
       if (ws && selectedSession) {
-        ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name });
+        ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
       }
     }, 300);
   };
@@ -1557,7 +1557,7 @@ export default function TerminalPage() {
                       // Capture output after delay
                       setTimeout(() => {
                         if (ws && selectedSession) {
-                          ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name });
+                          ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
                         }
                       }, 100);
 
@@ -1594,7 +1594,7 @@ export default function TerminalPage() {
                         // Capture output after delay
                         setTimeout(() => {
                           if (ws && selectedSession) {
-                            ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name });
+                            ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
                           }
                         }, 100);
 
@@ -1630,7 +1630,7 @@ export default function TerminalPage() {
                       // Capture output after delay
                       setTimeout(() => {
                         if (ws && selectedSession) {
-                          ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name });
+                          ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
                         }
                       }, 100);
 
