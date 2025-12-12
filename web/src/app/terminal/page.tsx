@@ -1441,71 +1441,6 @@ export default function TerminalPage() {
                     })(),
                   }}
                 />
-
-                {/* Mobile: Inline input box when active */}
-                {inputMode === 'active' && selectedSession && !sidebarOpen && (
-                  <div className="px-2 pb-2">
-                    {/* Input field */}
-                    <div className={`rounded-2xl px-1 py-1 ${theme === 'dark' ? 'bg-neutral-800/90' : 'bg-white/90'} backdrop-blur-xl shadow-lg border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
-                      <form onSubmit={handleSendCommand} className="flex items-start gap-2">
-                        <textarea
-                          value={command}
-                          onChange={(e) => setCommand(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendCommand(e);
-                            }
-                          }}
-                          onBlur={() => {
-                            setTimeout(() => {
-                              setInputMode('disabled');
-                            }, 150);
-                          }}
-                          placeholder="Enter command... (Shift+Enter for new line)"
-                          rows={Math.min(Math.max(command.split('\n').length, 1), 8)}
-                          style={{ fontSize: '16px', resize: 'none' }}
-                          className={`flex-1 px-4 py-2
-                            bg-transparent
-                            ${themes[theme].text}
-                            ${theme === 'dark' ? 'placeholder-neutral-500' : 'placeholder-neutral-400'}
-                            outline-none
-                            touch-manipulation
-                            font-mono text-base
-                            max-h-48 overflow-y-auto`}
-                          autoComplete="off"
-                          autoFocus
-                        />
-                        <button
-                          type={command.trim() ? 'submit' : 'button'}
-                          onClick={() => {
-                            if (!command.trim()) {
-                              setInputMode('disabled');
-                            }
-                          }}
-                          className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center
-                            transition-all duration-200 touch-manipulation
-                            ${command.trim()
-                              ? theme === 'dark' ? 'bg-neutral-600 text-neutral-200' : 'bg-neutral-500 text-white'
-                              : theme === 'dark' ? 'bg-neutral-700/50 text-neutral-400' : 'bg-neutral-200 text-neutral-500'
-                            }
-                            active:scale-90`}
-                          aria-label={command.trim() ? 'Send' : 'Close'}
-                        >
-                          {command.trim() ? (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5M5 12l7-7 7 7" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               /* Desktop: xterm.js */
@@ -1723,6 +1658,70 @@ export default function TerminalPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile: Fixed input box when active (both modes) */}
+          {isMobile && selectedSession && !sidebarOpen && inputMode === 'active' && (
+            <div className="fixed bottom-4 left-4 right-4 z-30">
+              <div className={`rounded-2xl px-3 py-3 ${theme === 'dark' ? 'bg-neutral-800/95' : 'bg-white/95'} backdrop-blur-xl shadow-2xl border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
+                <form onSubmit={handleSendCommand} className="flex items-end gap-2">
+                  <textarea
+                    value={command}
+                    onChange={(e) => setCommand(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendCommand(e);
+                      }
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        setInputMode('disabled');
+                      }, 150);
+                    }}
+                    placeholder="Enter command... (Shift+Enter for new line)"
+                    rows={Math.min(Math.max(command.split('\n').length, 1), 8)}
+                    style={{ fontSize: '16px', resize: 'none' }}
+                    className={`flex-1 px-0 py-0
+                      bg-transparent
+                      ${themes[theme].text}
+                      ${theme === 'dark' ? 'placeholder-neutral-500' : 'placeholder-neutral-400'}
+                      outline-none
+                      touch-manipulation
+                      font-mono text-base
+                      max-h-64`}
+                    autoComplete="off"
+                    autoFocus
+                  />
+                  <button
+                    type={command.trim() ? 'submit' : 'button'}
+                    onClick={() => {
+                      if (!command.trim()) {
+                        setInputMode('disabled');
+                      }
+                    }}
+                    className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center
+                      transition-all duration-200 touch-manipulation
+                      ${command.trim()
+                        ? theme === 'dark' ? 'bg-neutral-600 text-neutral-200' : 'bg-neutral-500 text-white'
+                        : theme === 'dark' ? 'bg-neutral-700/50 text-neutral-400' : 'bg-neutral-200 text-neutral-500'
+                      }
+                      active:scale-90`}
+                    aria-label={command.trim() ? 'Send' : 'Close'}
+                  >
+                    {command.trim() ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5M5 12l7-7 7 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                  </button>
+                </form>
               </div>
             </div>
           )}
