@@ -141,6 +141,7 @@ export interface CloseWindowResponse {
 export interface ExecuteCommandPayload {
   session_name: string;
   command: string;
+  window_index?: number;
 }
 
 export interface ExecuteCommandResponse {

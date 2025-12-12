@@ -47,7 +47,7 @@ type TmuxManager interface {
 	CreateSession(name string) (*protocol.Session, error)
 	KillSession(name string) error
 	RenameSession(oldName, newName string) error
-	ExecuteCommand(sessionName, command string) error
+	ExecuteCommand(sessionName, command string, windowIndex *int) error
 	SendText(sessionName, text string) error
 	CaptureOutput(sessionName string, windowIndex *int) (string, error)
 	ListWindows(sessionName string) ([]protocol.Window, error)

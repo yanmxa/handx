@@ -175,34 +175,78 @@ func (m *Manager) getSessionByName(name string) (*gotmux.Session, error) {
 }
 
 // ExecuteCommand executes a command in a session
-func (m *Manager) ExecuteCommand(sessionName, command string) error {
+// If windowIndex is provided, executes in that window; otherwise executes in active window
+func (m *Manager) ExecuteCommand(sessionName, command string, windowIndex *int) error {
 	session, err := m.getSessionByName(sessionName)
 	if err != nil {
 		return err
 	}
 
-	// Get the active pane
-	panes, err := session.ListPanes()
-	if err != nil {
-		return fmt.Errorf("failed to list panes: %w", err)
-	}
-
-	if len(panes) == 0 {
-		return fmt.Errorf("no panes found in session")
-	}
-
-	// Find active pane
 	var activePane *gotmux.Pane
-	for _, p := range panes {
-		if p.Active {
-			activePane = p
-			break
-		}
-	}
 
-	if activePane == nil {
-		// If no active pane, use the first one
-		activePane = panes[0]
+	// If window index is specified, get pane from that window
+	if windowIndex != nil {
+		windows, err := session.ListWindows()
+		if err != nil {
+			return fmt.Errorf("failed to list windows: %w", err)
+		}
+
+		var targetWindow *gotmux.Window
+		for _, w := range windows {
+			if w.Index == *windowIndex {
+				targetWindow = w
+				break
+			}
+		}
+
+		if targetWindow == nil {
+			return fmt.Errorf("window index %d not found in session '%s'", *windowIndex, sessionName)
+		}
+
+		// Get active pane from target window
+		panes, err := targetWindow.ListPanes()
+		if err != nil {
+			return fmt.Errorf("failed to list panes: %w", err)
+		}
+
+		if len(panes) == 0 {
+			return fmt.Errorf("no panes found in window %d", *windowIndex)
+		}
+
+		// Find active pane in window
+		for _, p := range panes {
+			if p.Active {
+				activePane = p
+				break
+			}
+		}
+
+		if activePane == nil {
+			activePane = panes[0]
+		}
+	} else {
+		// Get the active pane from session (original behavior)
+		panes, err := session.ListPanes()
+		if err != nil {
+			return fmt.Errorf("failed to list panes: %w", err)
+		}
+
+		if len(panes) == 0 {
+			return fmt.Errorf("no panes found in session")
+		}
+
+		// Find active pane
+		for _, p := range panes {
+			if p.Active {
+				activePane = p
+				break
+			}
+		}
+
+		if activePane == nil {
+			// If no active pane, use the first one
+			activePane = panes[0]
+		}
 	}
 
 	// Handle special keys (send directly without -l flag and without Enter)

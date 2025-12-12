@@ -786,6 +786,7 @@ export default function TerminalPage() {
     ws.send(MessageType.EXECUTE_COMMAND, {
       session_name: selectedSession.name,
       command: cmd,
+      window_index: activeWindowIndex,
     });
 
     // Show command in terminal (desktop)
@@ -1549,6 +1550,7 @@ export default function TerminalPage() {
                       ws.send(MessageType.EXECUTE_COMMAND, {
                         session_name: selectedSession.name,
                         command: 'Escape',
+                        window_index: activeWindowIndex,
                       });
 
                       // Show command in mobile terminal
@@ -1586,6 +1588,7 @@ export default function TerminalPage() {
                         ws.send(MessageType.EXECUTE_COMMAND, {
                           session_name: selectedSession.name,
                           command: key,
+                          window_index: activeWindowIndex,
                         });
 
                         // Show command in mobile terminal
@@ -1622,6 +1625,7 @@ export default function TerminalPage() {
                       ws.send(MessageType.EXECUTE_COMMAND, {
                         session_name: selectedSession.name,
                         command: 'Enter',
+                        window_index: activeWindowIndex,
                       });
 
                       // Show command in mobile terminal

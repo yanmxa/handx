@@ -194,6 +194,7 @@ type CloseWindowResponse struct {
 type ExecuteCommandPayload struct {
 	SessionName string `json:"session_name"`
 	Command     string `json:"command"`
+	WindowIndex *int   `json:"window_index,omitempty"` // Optional: specific window to execute in
 }
 
 // ExecuteCommandResponse is the payload for execute_command_response

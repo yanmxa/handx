@@ -107,10 +107,14 @@ func (c *Client) handleExecuteCommand(msg *protocol.Message) {
 		return
 	}
 
-	log.Printf("Execute command: session=%s, command=%s", payload.SessionName, payload.Command)
+	if payload.WindowIndex != nil {
+		log.Printf("Execute command: session=%s, window=%d, command=%s", payload.SessionName, *payload.WindowIndex, payload.Command)
+	} else {
+		log.Printf("Execute command: session=%s, command=%s", payload.SessionName, payload.Command)
+	}
 
 	// Execute command with Enter key - automatically execute after submission
-	err = c.server.tmuxManager.ExecuteCommand(payload.SessionName, payload.Command)
+	err = c.server.tmuxManager.ExecuteCommand(payload.SessionName, payload.Command, payload.WindowIndex)
 	if err != nil {
 		log.Printf("Failed to execute command: %v", err)
 		c.sendError(protocol.ErrorCommandFailed, fmt.Sprintf("Failed to execute command: %v", err), msg.ID)
