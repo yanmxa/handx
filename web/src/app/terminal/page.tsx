@@ -1781,7 +1781,8 @@ export default function TerminalPage() {
                     ? 'linear-gradient(to top, rgba(248, 250, 252, 0.98), rgba(248, 250, 252, 0.3))'
                     : 'linear-gradient(to top, rgba(248, 250, 252, 0.95), rgba(248, 250, 252, 0))'
               }}
-              onClick={() => {
+              onTouchEnd={(e) => {
+                e.preventDefault();
                 const now = Date.now();
                 const timeSinceLastTap = now - lastTapTimeRef.current;
 
@@ -1796,7 +1797,7 @@ export default function TerminalPage() {
                 }
               }}
             >
-              <div className={`px-6 py-2.5 rounded-full border shadow-lg backdrop-blur-md transition-all duration-300 ${
+              <div className={`px-6 py-2.5 rounded-full border shadow-lg backdrop-blur-md transition-all duration-300 pointer-events-none ${
                 isNearBottom
                   ? theme === 'dark'
                     ? 'bg-neutral-700/90 border-neutral-600/70 scale-110'
