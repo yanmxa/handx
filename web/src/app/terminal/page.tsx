@@ -70,6 +70,8 @@ export default function TerminalPage() {
   const [mobileInputType, setMobileInputType] = useState<'floating' | 'touchscreen'>('floating'); // Mobile input mode type
   const lastTapTimeRef = useRef<number>(0); // For double-tap detection
   const [isNearBottom, setIsNearBottom] = useState(false); // Track if user is near page bottom
+  const [debugInfo, setDebugInfo] = useState(''); // Debug info for mobile
+  const [keyboardHeight, setKeyboardHeight] = useState(0); // Track keyboard height
 
   // Long press state for mobile session deletion
   const [longPressSessionId, setLongPressSessionId] = useState<string | null>(null);
@@ -283,6 +285,33 @@ export default function TerminalPage() {
       window.removeEventListener('scroll', handleScroll);
     };
   }, [isMobile, mounted, selectedSession]);
+
+  // Monitor keyboard height on mobile (for input box positioning)
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return;
+
+    const updateKeyboardHeight = () => {
+      if (window.visualViewport) {
+        // Calculate keyboard height: window height - visible viewport height
+        const kbHeight = window.innerHeight - window.visualViewport.height;
+        setKeyboardHeight(Math.max(0, kbHeight));
+      }
+    };
+
+    // Listen to visualViewport changes
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateKeyboardHeight);
+      window.visualViewport.addEventListener('scroll', updateKeyboardHeight);
+      updateKeyboardHeight(); // Initial check
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateKeyboardHeight);
+        window.visualViewport.removeEventListener('scroll', updateKeyboardHeight);
+      }
+    };
+  }, [isMobile]);
 
   // Auto-resize textarea based on content
   useEffect(() => {
@@ -1698,7 +1727,12 @@ export default function TerminalPage() {
 
           {/* Mobile: Fixed input box when active (both modes) */}
           {isMobile && selectedSession && !sidebarOpen && inputMode === 'active' && (
-            <div className="fixed bottom-4 left-4 right-4 z-30">
+            <div
+              className="fixed left-0 right-0 z-30 px-4 pb-2 transition-all duration-200"
+              style={{
+                bottom: `${keyboardHeight}px`
+              }}
+            >
               <div className={`rounded-2xl px-3 py-3 ${theme === 'dark' ? 'bg-neutral-800/95' : 'bg-white/95'} backdrop-blur-xl shadow-2xl border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
                 <form onSubmit={handleSendCommand} className="flex items-end gap-2">
                   <textarea
@@ -1766,10 +1800,23 @@ export default function TerminalPage() {
             </div>
           )}
 
+          {/* Debug info overlay (mobile only, top-left corner) */}
+          {isMobile && (
+            <div className="fixed top-20 left-2 z-50 bg-black/80 text-white text-xs p-2 rounded font-mono max-w-xs">
+              <div>Mode: {mobileInputType}</div>
+              <div>Input: {inputMode}</div>
+              <div>Bottom: {isNearBottom ? 'YES' : 'NO'}</div>
+              <div>KB Height: {keyboardHeight}px</div>
+              <div>Session: {selectedSession ? 'YES' : 'NO'}</div>
+              <div>Sidebar: {sidebarOpen ? 'OPEN' : 'CLOSED'}</div>
+              {debugInfo && <div className="text-yellow-300 mt-1">{debugInfo}</div>}
+            </div>
+          )}
+
           {/* Mobile Touchscreen Mode: Bottom trigger area */}
           {isMobile && selectedSession && !sidebarOpen && mobileInputType === 'touchscreen' && inputMode === 'disabled' && (
             <div
-              className={`fixed bottom-0 left-0 right-0 z-20 flex items-center justify-center backdrop-blur-sm transition-all duration-300 ${
+              className={`fixed bottom-0 left-0 right-0 z-30 flex items-center justify-center backdrop-blur-sm transition-all duration-300 ${
                 isNearBottom ? 'h-32' : 'h-16'
               }`}
               style={{
@@ -1781,20 +1828,34 @@ export default function TerminalPage() {
                     ? 'linear-gradient(to top, rgba(248, 250, 252, 0.98), rgba(248, 250, 252, 0.3))'
                     : 'linear-gradient(to top, rgba(248, 250, 252, 0.95), rgba(248, 250, 252, 0))'
               }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                setDebugInfo('Touch start');
+              }}
               onTouchEnd={(e) => {
+                e.stopPropagation();
                 e.preventDefault();
+                setDebugInfo('Touch end - activating input');
                 const now = Date.now();
                 const timeSinceLastTap = now - lastTapTimeRef.current;
 
                 if (timeSinceLastTap < 300) {
                   // Double tap - show quick keys
+                  setDebugInfo('Double tap - quick keys');
                   setInputMode('quickkeys');
                   lastTapTimeRef.current = 0;
                 } else {
                   // Single tap - show input
+                  setDebugInfo('Single tap - input active');
                   setInputMode('active');
                   lastTapTimeRef.current = now;
                 }
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setDebugInfo('Click - activating input');
+                setInputMode('active');
               }}
             >
               <div className={`px-6 py-2.5 rounded-full border shadow-lg backdrop-blur-md transition-all duration-300 pointer-events-none ${
