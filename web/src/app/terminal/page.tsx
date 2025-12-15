@@ -71,7 +71,6 @@ export default function TerminalPage() {
   const lastTapTimeRef = useRef<number>(0); // For double-tap detection
   const [isNearBottom, setIsNearBottom] = useState(false); // Track if user is near page bottom
   const [debugInfo, setDebugInfo] = useState(''); // Debug info for mobile
-  const [keyboardHeight, setKeyboardHeight] = useState(0); // Track keyboard height
 
   // Long press state for mobile session deletion
   const [longPressSessionId, setLongPressSessionId] = useState<string | null>(null);
@@ -285,33 +284,6 @@ export default function TerminalPage() {
       window.removeEventListener('scroll', handleScroll);
     };
   }, [isMobile, mounted, selectedSession]);
-
-  // Monitor keyboard height on mobile (for input box positioning)
-  useEffect(() => {
-    if (!isMobile || typeof window === 'undefined') return;
-
-    const updateKeyboardHeight = () => {
-      if (window.visualViewport) {
-        // Calculate keyboard height: window height - visible viewport height
-        const kbHeight = window.innerHeight - window.visualViewport.height;
-        setKeyboardHeight(Math.max(0, kbHeight));
-      }
-    };
-
-    // Listen to visualViewport changes
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateKeyboardHeight);
-      window.visualViewport.addEventListener('scroll', updateKeyboardHeight);
-      updateKeyboardHeight(); // Initial check
-    }
-
-    return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', updateKeyboardHeight);
-        window.visualViewport.removeEventListener('scroll', updateKeyboardHeight);
-      }
-    };
-  }, [isMobile]);
 
   // Auto-resize textarea based on content
   useEffect(() => {
@@ -1727,12 +1699,7 @@ export default function TerminalPage() {
 
           {/* Mobile: Fixed input box when active (both modes) */}
           {isMobile && selectedSession && !sidebarOpen && inputMode === 'active' && (
-            <div
-              className="fixed left-0 right-0 z-30 px-4 pb-2 transition-all duration-200"
-              style={{
-                bottom: `${keyboardHeight}px`
-              }}
-            >
+            <div className="fixed bottom-0 left-0 right-0 z-30 px-4 pb-2">
               <div className={`rounded-2xl px-3 py-3 ${theme === 'dark' ? 'bg-neutral-800/95' : 'bg-white/95'} backdrop-blur-xl shadow-2xl border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
                 <form onSubmit={handleSendCommand} className="flex items-end gap-2">
                   <textarea
@@ -1806,7 +1773,6 @@ export default function TerminalPage() {
               <div>Mode: {mobileInputType}</div>
               <div>Input: {inputMode}</div>
               <div>Bottom: {isNearBottom ? 'YES' : 'NO'}</div>
-              <div>KB Height: {keyboardHeight}px</div>
               <div>Session: {selectedSession ? 'YES' : 'NO'}</div>
               <div>Sidebar: {sidebarOpen ? 'OPEN' : 'CLOSED'}</div>
               {debugInfo && <div className="text-yellow-300 mt-1">{debugInfo}</div>}
