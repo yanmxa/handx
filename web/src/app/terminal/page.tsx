@@ -69,6 +69,7 @@ export default function TerminalPage() {
   const keyboardLongPressRef = useRef<NodeJS.Timeout | null>(null);
   const [mobileInputType, setMobileInputType] = useState<'floating' | 'touchscreen'>('floating'); // Mobile input mode type
   const lastTapTimeRef = useRef<number>(0); // For double-tap detection
+  const [isNearBottom, setIsNearBottom] = useState(false); // Track if user is near page bottom
 
   // Long press state for mobile session deletion
   const [longPressSessionId, setLongPressSessionId] = useState<string | null>(null);
@@ -238,8 +239,9 @@ export default function TerminalPage() {
       const currentScrollY = window.scrollY;
       const scrollDelta = currentScrollY - lastScrollYRef.current;
 
-      // Check if near bottom of page (within 100px)
-      const isNearBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 100);
+      // Check if near bottom of page (within 200px for better UX)
+      const nearBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 200);
+      setIsNearBottom(nearBottom);
 
       // Always show header when at top of page
       if (currentScrollY < 10) {
@@ -249,7 +251,7 @@ export default function TerminalPage() {
       }
 
       // Always hide header when near bottom (including bounce back)
-      if (isNearBottom) {
+      if (nearBottom) {
         setHeaderVisible(false);
         lastScrollYRef.current = currentScrollY;
         return;
@@ -266,7 +268,7 @@ export default function TerminalPage() {
         } else {
           // Scrolling up - show header only if NOT near bottom
           // This prevents header from showing during bounce-back at bottom
-          if (!isNearBottom) {
+          if (!nearBottom) {
             setHeaderVisible(true);
             scrollDirectionRef.current = 'up';
           }
@@ -1767,11 +1769,17 @@ export default function TerminalPage() {
           {/* Mobile Touchscreen Mode: Bottom trigger area */}
           {isMobile && selectedSession && !sidebarOpen && mobileInputType === 'touchscreen' && inputMode === 'disabled' && (
             <div
-              className="fixed bottom-0 left-0 right-0 z-20 h-16 flex items-center justify-center backdrop-blur-sm"
+              className={`fixed bottom-0 left-0 right-0 z-20 flex items-center justify-center backdrop-blur-sm transition-all duration-300 ${
+                isNearBottom ? 'h-32' : 'h-16'
+              }`}
               style={{
                 background: theme === 'dark'
-                  ? 'linear-gradient(to top, rgba(23, 23, 23, 0.95), rgba(23, 23, 23, 0))'
-                  : 'linear-gradient(to top, rgba(248, 250, 252, 0.95), rgba(248, 250, 252, 0))'
+                  ? isNearBottom
+                    ? 'linear-gradient(to top, rgba(23, 23, 23, 0.98), rgba(23, 23, 23, 0.3))'
+                    : 'linear-gradient(to top, rgba(23, 23, 23, 0.95), rgba(23, 23, 23, 0))'
+                  : isNearBottom
+                    ? 'linear-gradient(to top, rgba(248, 250, 252, 0.98), rgba(248, 250, 252, 0.3))'
+                    : 'linear-gradient(to top, rgba(248, 250, 252, 0.95), rgba(248, 250, 252, 0))'
               }}
               onClick={() => {
                 const now = Date.now();
@@ -1788,13 +1796,25 @@ export default function TerminalPage() {
                 }
               }}
             >
-              <div className={`px-6 py-2 rounded-full ${theme === 'dark' ? 'bg-neutral-800/80' : 'bg-white/80'} border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'} shadow-lg backdrop-blur-md`}>
+              <div className={`px-6 py-2.5 rounded-full border shadow-lg backdrop-blur-md transition-all duration-300 ${
+                isNearBottom
+                  ? theme === 'dark'
+                    ? 'bg-neutral-700/90 border-neutral-600/70 scale-110'
+                    : 'bg-white/90 border-neutral-300 scale-110'
+                  : theme === 'dark'
+                    ? 'bg-neutral-800/80 border-neutral-700/50'
+                    : 'bg-white/80 border-neutral-200'
+              }`}>
                 <div className="flex items-center gap-2">
-                  <svg className={`w-4 h-4 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`transition-all duration-300 ${
+                    isNearBottom ? 'w-5 h-5' : 'w-4 h-4'
+                  } ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
-                  <span className={`text-sm ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>
-                    Tap to type • Double tap for keys
+                  <span className={`transition-all duration-300 ${
+                    isNearBottom ? 'text-base font-medium' : 'text-sm'
+                  } ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                    {isNearBottom ? '点击输入' : 'Tap to type • Double tap for keys'}
                   </span>
                 </div>
               </div>
