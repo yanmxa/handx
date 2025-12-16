@@ -285,6 +285,36 @@ export default function TerminalPage() {
     };
   }, [isMobile, mounted, selectedSession]);
 
+  // Lock body scroll when input is active (mobile only)
+  useEffect(() => {
+    if (!isMobile) return;
+
+    if (inputMode === 'active') {
+      // Disable body scroll
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = `-${window.scrollY}px`;
+    } else {
+      // Re-enable body scroll
+      const scrollY = document.body.style.top;
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      }
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    };
+  }, [inputMode, isMobile]);
+
   // Auto-resize textarea based on content
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -1699,7 +1729,13 @@ export default function TerminalPage() {
 
           {/* Mobile: Fixed input box when active (both modes) */}
           {isMobile && selectedSession && !sidebarOpen && inputMode === 'active' && (
-            <div className="fixed bottom-0 left-0 right-0 z-30 px-4 pb-2">
+            <div
+              className="fixed left-0 right-0 z-30 px-4 pb-2"
+              style={{
+                bottom: '8px',
+                position: 'fixed'
+              }}
+            >
               <div className={`rounded-2xl px-3 py-3 ${theme === 'dark' ? 'bg-neutral-800/95' : 'bg-white/95'} backdrop-blur-xl shadow-2xl border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
                 <form onSubmit={handleSendCommand} className="flex items-end gap-2">
                   <textarea
