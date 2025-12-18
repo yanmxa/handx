@@ -70,7 +70,6 @@ export default function TerminalPage() {
   const [mobileInputType, setMobileInputType] = useState<'floating' | 'touchscreen'>('floating'); // Mobile input mode type
   const lastTapTimeRef = useRef<number>(0); // For double-tap detection
   const [isNearBottom, setIsNearBottom] = useState(false); // Track if user is near page bottom
-  const [debugInfo, setDebugInfo] = useState(''); // Debug info for mobile
 
   // Long press state for mobile session deletion
   const [longPressSessionId, setLongPressSessionId] = useState<string | null>(null);
@@ -1803,18 +1802,6 @@ export default function TerminalPage() {
             </div>
           )}
 
-          {/* Debug info overlay (mobile only, top-left corner) */}
-          {isMobile && (
-            <div className="fixed top-20 left-2 z-50 bg-black/80 text-white text-xs p-2 rounded font-mono max-w-xs">
-              <div>Mode: {mobileInputType}</div>
-              <div>Input: {inputMode}</div>
-              <div>Bottom: {isNearBottom ? 'YES' : 'NO'}</div>
-              <div>Session: {selectedSession ? 'YES' : 'NO'}</div>
-              <div>Sidebar: {sidebarOpen ? 'OPEN' : 'CLOSED'}</div>
-              {debugInfo && <div className="text-yellow-300 mt-1">{debugInfo}</div>}
-            </div>
-          )}
-
           {/* Mobile Touchscreen Mode: Bottom trigger area */}
           {isMobile && selectedSession && !sidebarOpen && mobileInputType === 'touchscreen' && inputMode === 'disabled' && (
             <div
@@ -1832,23 +1819,19 @@ export default function TerminalPage() {
               }}
               onTouchStart={(e) => {
                 e.stopPropagation();
-                setDebugInfo('Touch start');
               }}
               onTouchEnd={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                setDebugInfo('Touch end - activating input');
                 const now = Date.now();
                 const timeSinceLastTap = now - lastTapTimeRef.current;
 
                 if (timeSinceLastTap < 300) {
                   // Double tap - show quick keys
-                  setDebugInfo('Double tap - quick keys');
                   setInputMode('quickkeys');
                   lastTapTimeRef.current = 0;
                 } else {
                   // Single tap - show input
-                  setDebugInfo('Single tap - input active');
                   setInputMode('active');
                   lastTapTimeRef.current = now;
                 }
@@ -1856,7 +1839,6 @@ export default function TerminalPage() {
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                setDebugInfo('Click - activating input');
                 setInputMode('active');
               }}
             >
