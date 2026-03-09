@@ -49,17 +49,17 @@ export default function TerminalPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark'); // Theme state
   const [settingsOpen, setSettingsOpen] = useState(false); // Settings modal state
-  const [currentWsUrl, setCurrentWsUrl] = useState(''); // Current WebSocket URL
-  const [savedServers, setSavedServers] = useState<Array<{name: string, url: string}>>([]);
   const [isMobile, setIsMobile] = useState(false); // Mobile detection
-  const [mounted, setMounted] = useState(false); // Track if component is mounted (for hydration)
+  const mounted = typeof window !== 'undefined'; // Track if component is mounted (for hydration)
   const [terminalOutput, setTerminalOutput] = useState(''); // For mobile simple view
   const [headerVisible, setHeaderVisible] = useState(true); // Header visibility for mobile - default visible
+  const [showHeaderTabs, setShowHeaderTabs] = useState(false); // Toggle window tabs in header on tap
   const [wrapMode, setWrapMode] = useState<'wrap' | 'nowrap'>('nowrap'); // Mobile line wrapping
   const lastScrollYRef = useRef<number>(0); // Track last scroll position
   const scrollDirectionRef = useRef<'up' | 'down'>('down'); // Track scroll direction
   const [fontSize, setFontSize] = useState(13); // Terminal font size (default 13px for desktop, will be adjusted for mobile)
   const [scrollbackLines, setScrollbackLines] = useState(100); // Terminal scrollback buffer size (Short mode default)
+
 
   // Mobile keyboard button states
   const [inputMode, setInputMode] = useState<'disabled' | 'active' | 'quickkeys'>('disabled');
@@ -89,55 +89,65 @@ export default function TerminalPage() {
     }).join('\n');
   };
 
-  // Theme definitions - Minimal Gray Theme
+  // Theme definitions - Clean Dark Mode (OLED) + Modern Design
+  // Accent: Teal #14B8A6 for consistent branding with home page
+  // UX: 44x44px touch targets, gap-2+ spacing, touch-action: manipulation
   const themes = {
     dark: {
       terminal: {
-        background: '#0f0f0f',
-        foreground: '#d4d4d4',
-        cursor: '#a8a8a8',
-        cursorAccent: '#0f0f0f',
-        selectionBackground: '#404040',
-        black: '#404040',
+        background: '#05070d',
+        foreground: '#e2e8f0',
+        cursor: '#22d3ee',
+        cursorAccent: '#05070d',
+        selectionBackground: '#22d3ee30',
+        black: '#0f172a',
         red: '#f87171',
-        green: '#4ade80',
+        green: '#34d399',
         yellow: '#fbbf24',
         blue: '#60a5fa',
         magenta: '#c084fc',
         cyan: '#22d3ee',
-        white: '#d4d4d4',
-        brightBlack: '#737373',
+        white: '#e2e8f0',
+        brightBlack: '#94a3b8',
         brightRed: '#fca5a5',
-        brightGreen: '#86efac',
+        brightGreen: '#6ee7b7',
         brightYellow: '#fcd34d',
         brightBlue: '#93c5fd',
         brightMagenta: '#e9d5ff',
         brightCyan: '#67e8f9',
-        brightWhite: '#f5f5f5',
+        brightWhite: '#f8fafc',
       },
-      bg: 'bg-neutral-950',
-      text: 'text-neutral-200',
-      header: 'bg-neutral-900/95 backdrop-blur-lg',
-      sidebar: 'bg-neutral-900/90 backdrop-blur-xl',
-      border: 'border-neutral-800',
-      input: 'bg-neutral-800/90',
-      button: 'bg-neutral-700 hover:bg-neutral-600',
+      bg: 'bg-[#05070d]',
+      text: 'text-[#e2e8f0]',
+      header: 'bg-[#0b1220]/90 backdrop-blur-xl',
+      sidebar: 'bg-[#0b1220]/95 backdrop-blur-xl',
+      border: 'border-[#111826]',
+      input: 'bg-[#0f172a] border border-[#18233a]',
+      button: 'bg-[#22d3ee] hover:bg-[#38e1fb] text-[#03131c] font-semibold',
+      buttonSecondary: 'bg-[#0f172a] hover:bg-[#111a2f] text-[#e2e8f0] border border-[#18233a]',
+      accent: 'text-[#22d3ee]',
+      accentMuted: 'text-[#22d3ee]/70',
+      accentBg: 'bg-[#22d3ee]/12',
+      glow: 'shadow-[0_0_35px_rgba(34,211,238,0.16)]',
+      cardBg: 'bg-[#0b1220]',
+      cardHover: 'hover:bg-[#111a2f]',
+      textMuted: 'text-[#8ba3b8]',
     },
     light: {
       terminal: {
-        background: '#ffffff',
-        foreground: '#1e293b',
-        cursor: '#2563eb',
-        cursorAccent: '#ffffff',
-        selectionBackground: '#dbeafe',
-        black: '#1e293b',
+        background: '#f6f8fb',
+        foreground: '#0f172a',
+        cursor: '#0ea5e9',
+        cursorAccent: '#f6f8fb',
+        selectionBackground: '#bae6fd',
+        black: '#0f172a',
         red: '#dc2626',
-        green: '#059669',
+        green: '#0f766e',
         yellow: '#d97706',
         blue: '#2563eb',
         magenta: '#7c3aed',
-        cyan: '#0891b2',
-        white: '#64748b',
+        cyan: '#0ea5e9',
+        white: '#1f2937',
         brightBlack: '#475569',
         brightRed: '#b91c1c',
         brightGreen: '#047857',
@@ -145,23 +155,28 @@ export default function TerminalPage() {
         brightBlue: '#1d4ed8',
         brightMagenta: '#6d28d9',
         brightCyan: '#0e7490',
-        brightWhite: '#94a3b8',
+        brightWhite: '#0f172a',
       },
-      bg: 'bg-slate-50',
-      text: 'text-slate-900',
-      header: 'bg-white/95 backdrop-blur-lg',
-      sidebar: 'bg-white/80 backdrop-blur-xl',
-      border: 'border-slate-200',
-      input: 'bg-slate-100',
-      button: 'bg-blue-600 hover:bg-blue-700',
+      bg: 'bg-[#f6f8fb]',
+      text: 'text-[#0f172a]',
+      header: 'bg-white/85 backdrop-blur-xl',
+      sidebar: 'bg-white/95 backdrop-blur-xl',
+      border: 'border-[#e2e8f0]',
+      input: 'bg-white border border-[#e2e8f0]',
+      button: 'bg-[#0ea5e9] hover:bg-[#38bdf8] text-white font-semibold',
+      buttonSecondary: 'bg-white hover:bg-[#eef2f7] text-[#0f172a] border border-[#e2e8f0]',
+      accent: 'text-[#0ea5e9]',
+      accentMuted: 'text-[#0ea5e9]/70',
+      accentBg: 'bg-[#0ea5e9]/10',
+      glow: 'shadow-lg shadow-sky-200/40',
+      cardBg: 'bg-white',
+      cardHover: 'hover:bg-[#f7fbff]',
+      textMuted: 'text-[#4b5563]',
     },
   };
 
   // Detect mobile device and load settings
   useEffect(() => {
-    // Mark component as mounted (for hydration)
-    setMounted(true);
-
     // Detect mobile
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
@@ -216,16 +231,6 @@ export default function TerminalPage() {
       localStorage.setItem('handx_mobile_input_type', 'floating');
     }
 
-    // Load saved servers
-    const savedServersStr = localStorage.getItem('handx_saved_servers');
-    if (savedServersStr) {
-      try {
-        setSavedServers(JSON.parse(savedServersStr));
-      } catch {
-        // Silently ignore parse errors
-      }
-    }
-
     return () => {
       window.removeEventListener('resize', checkMobile);
     };
@@ -261,6 +266,8 @@ export default function TerminalPage() {
       const SCROLL_THRESHOLD = 3;
 
       if (Math.abs(scrollDelta) > SCROLL_THRESHOLD) {
+        // Dismiss header tabs on any scroll
+        setShowHeaderTabs(false);
         if (scrollDelta > 0) {
           // Scrolling down - hide header
           setHeaderVisible(false);
@@ -289,28 +296,18 @@ export default function TerminalPage() {
     if (!isMobile) return;
 
     if (inputMode === 'active') {
-      // Disable body scroll
+      // Disable body scroll - only use overflow hidden to keep input box at bottom
       document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.top = `-${window.scrollY}px`;
+      document.body.style.touchAction = 'none';
     } else {
       // Re-enable body scroll
-      const scrollY = document.body.style.top;
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0') * -1);
-      }
+      document.body.style.touchAction = '';
     }
 
     return () => {
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
+      document.body.style.touchAction = '';
     };
   }, [inputMode, isMobile]);
 
@@ -395,6 +392,12 @@ export default function TerminalPage() {
   };
   const getScrollbackModeName = () => {
     return scrollbackModes.find(m => m.lines === scrollbackLines)?.name || 'Short';
+  };
+
+  const toggleWrapMode = () => {
+    const newMode = wrapMode === 'wrap' ? 'nowrap' : 'wrap';
+    setWrapMode(newMode);
+    localStorage.setItem('handx_wrap_mode', newMode);
   };
 
   // Initialize xterm.js (desktop only)
@@ -616,13 +619,14 @@ export default function TerminalPage() {
 
     // Handle delete session response
     client.on(MessageType.DELETE_SESSION_RESPONSE, (message) => {
-      if (message.payload.success) {
+      const payload = message.payload as DeleteSessionPayload & { success: boolean };
+      if (payload.success) {
         if (xtermRef.current) {
-          xtermRef.current.writeln(`\x1b[1;33m✓ Session deleted: ${message.payload.session_name}\x1b[0m`);
+          xtermRef.current.writeln(`\x1b[1;33m✓ Session deleted: ${payload.session_name}\x1b[0m`);
           xtermRef.current.writeln('');
         }
         // Clear selected session if it was deleted
-        if (selectedSession && selectedSession.name === message.payload.session_name) {
+        if (selectedSession && selectedSession.name === payload.session_name) {
           setSelectedSession(null);
           stopOutputCapture();
         }
@@ -694,7 +698,7 @@ export default function TerminalPage() {
 
     // Handle errors
     client.on(MessageType.ERROR, (message) => {
-      const errorMsg = message.payload?.message || 'An error occurred';
+      const errorMsg = (message.payload as { message?: string })?.message || 'An error occurred';
       console.warn('Server error:', message.payload);
       setError(errorMsg);
       if (xtermRef.current) {
@@ -951,60 +955,65 @@ export default function TerminalPage() {
   }
 
   return (
-    <div className={`${isMobile ? 'min-h-screen' : 'min-h-screen flex flex-col'} ${themes[theme].bg} ${themes[theme].text} touch-pan-y overscroll-none`}>
-      {/* Header - Sticky on mobile, collapsible */}
-      <div className={`sticky top-0 z-30 ${themes[theme].header} transition-all duration-300 ease-in-out relative ${
-        isMobile && !headerVisible ? '-translate-y-full opacity-0' : 'translate-y-0 p-2 md:p-4 opacity-100'
-      } ${!isMobile ? 'p-2 md:p-4' : ''}`}>
-        {/* Subtle gradient border bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-neutral-700/50 to-transparent" />
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            {/* Hamburger menu - mobile only */}
+    <div className={`${isMobile ? 'min-h-screen' : 'min-h-screen flex flex-col'} ${themes[theme].bg} ${themes[theme].text} touch-pan-y overscroll-none relative`}>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-70" aria-hidden>
+        <div className="absolute -left-12 -top-20 h-64 w-64 rounded-full bg-[#22d3ee]/10 blur-3xl" />
+        <div className="absolute right-[-60px] top-6 h-60 w-60 rounded-full bg-[#0ea5e9]/12 blur-3xl" />
+        <div className="absolute left-1/3 bottom-[-120px] h-72 w-72 rounded-full bg-[#38e1fb]/10 blur-3xl" />
+      </div>
+      {/* Header - Sticky on mobile, auto-hide on scroll */}
+      <div className={`sticky top-0 z-30 ${themes[theme].header} border-b ${themes[theme].border} transition-all duration-300 ease-in-out ${
+        isMobile && !headerVisible ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'
+      }`}>
+        <div className="px-3 py-2 md:px-4 md:py-3 max-w-7xl mx-auto flex items-center justify-between"
+          onClick={(e) => {
+            // Mobile: tap blank area of header to toggle window tabs
+            if (isMobile && selectedSession && e.target === e.currentTarget) {
+              setShowHeaderTabs(prev => !prev);
+            }
+          }}
+        >
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Hamburger menu - mobile only - 44x44px touch target */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={`md:hidden p-2 hover:${themes[theme].bg} active:bg-opacity-50 rounded transition touch-manipulation select-none`}
+              className={`md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl transition-all duration-200 touch-manipulation select-none active:scale-95 ${themes[theme].buttonSecondary}`}
               aria-label="Toggle menu"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg className={`w-5 h-5 ${themes[theme].accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
               </svg>
             </button>
-            {/* Logo - Hand of the King: Artistic Badge Design */}
+            {/* Logo / Back button */}
             <div
-              className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 cursor-pointer"
               onClick={() => router.push('/')}
             >
-              <svg className="w-6 h-6 md:w-7 md:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                {/* Shield/Badge background */}
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 2L4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3z" fill="url(#handGradient)" fillOpacity="0.1" />
-
-                {/* Crown symbol at top */}
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 8l1 1 1.5-2 1.5 2 1.5-2 1.5 2 1-1v2H8V8z" fill="currentColor" fillOpacity="0.2" />
-
-                {/* Abstract hand gesture - three fingers up */}
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10 12v4M12 11v5M14 12v4" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.5 16h5c.5 0 .5.5.5 1s0 1-.5 1h-5c-.5 0-.5-.5-.5-1s0-1 .5-1z" fill="currentColor" fillOpacity="0.15" />
-
-                {/* Gradient definition */}
-                <defs>
-                  <linearGradient id="handGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="rgb(115, 115, 115)" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="rgb(163, 163, 163)" stopOpacity="0.2" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <h1 className={`text-lg md:text-xl font-bold ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-600'}`}>HandX</h1>
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${themes[theme].accentBg}`}>
+                <svg className={`w-4.5 h-4.5 ${themes[theme].accent}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div className="hidden md:block">
+                <h1 className={`text-base font-bold ${themes[theme].text}`}>HandX</h1>
+                <p className={`text-xs ${themes[theme].textMuted}`}>Terminal</p>
+              </div>
             </div>
-            <div className="hidden sm:flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-              <span className={`text-sm ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                {connected ? 'Connected' : 'Disconnected'}
+            {/* Mobile: session name in header */}
+            {isMobile && selectedSession && (
+              <span className={`text-sm font-medium truncate max-w-[120px] ${themes[theme].text}`}>{selectedSession.name}</span>
+            )}
+            {/* Connection status badge */}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${themes[theme].accentBg}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-teal-500' : 'bg-red-500'} ${connected ? 'animate-pulse' : ''}`} />
+              <span className={`text-xs font-medium ${themes[theme].accent}`}>
+                {connected ? 'Live' : 'Offline'}
               </span>
             </div>
-            {selectedSession && (
-              <div className={`hidden lg:block text-sm ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                Session: <span className={`${themes[theme].text} font-medium`}>{selectedSession.name}</span>
+            {/* Session name on larger screens */}
+            {!isMobile && selectedSession && (
+              <div className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${themes[theme].buttonSecondary}`}>
+                <span className={`text-xs ${themes[theme].text}`}>{selectedSession.name}</span>
               </div>
             )}
           </div>
@@ -1016,13 +1025,13 @@ export default function TerminalPage() {
                   e.stopPropagation();
                   setSettingsOpen(!settingsOpen);
                 }}
-                className="p-2 rounded transition touch-manipulation select-none opacity-70 hover:opacity-100"
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all touch-manipulation select-none active:scale-95 ${themes[theme].buttonSecondary}`}
                 aria-label="Settings"
                 title="Settings"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <svg className={`w-5 h-5 ${themes[theme].textMuted}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </button>
 
@@ -1140,11 +1149,7 @@ export default function TerminalPage() {
 
                       {/* Wrap Control */}
                       <button
-                        onClick={() => {
-                          const newMode = wrapMode === 'wrap' ? 'nowrap' : 'wrap';
-                          setWrapMode(newMode);
-                          localStorage.setItem('handx_wrap_mode', newMode);
-                        }}
+                        onClick={toggleWrapMode}
                         className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors
                           ${theme === 'dark' ? 'hover:bg-neutral-800' : 'hover:bg-slate-100'}`}
                       >
@@ -1201,6 +1206,29 @@ export default function TerminalPage() {
             </button>
           </div>
         </div>
+        {/* Mobile: Window tabs inside sticky header - shown on tap or when scrolled */}
+        {isMobile && selectedSession && windows.length > 0 && showHeaderTabs && (
+          <div className={`flex items-center gap-1 px-2 py-1.5 overflow-x-auto scrollbar-hide border-t ${theme === 'dark' ? 'bg-[#080e1a]/95 border-neutral-800/40' : 'bg-slate-50/95 border-slate-200/60'}`}>
+            {windows.map((win) => (
+              <button
+                key={win.id}
+                onClick={() => { handleSwitchWindow(win.index); setShowHeaderTabs(false); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 flex-shrink-0 touch-manipulation select-none active:scale-95
+                  ${activeWindowIndex === win.index
+                    ? theme === 'dark'
+                      ? 'bg-teal-500/15 text-teal-300 ring-1 ring-teal-500/30'
+                      : 'bg-teal-50 text-teal-700 ring-1 ring-teal-500/30'
+                    : theme === 'dark'
+                    ? 'text-neutral-500 active:bg-neutral-800'
+                    : 'text-neutral-400 active:bg-slate-200'
+                  }`}
+              >
+                <span className={`mr-1 font-mono text-[10px] ${activeWindowIndex === win.index ? '' : theme === 'dark' ? 'text-neutral-600' : 'text-neutral-300'}`}>{win.index}</span>
+                {win.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Error Display */}
@@ -1210,155 +1238,138 @@ export default function TerminalPage() {
         </div>
       )}
 
+      {/* Mobile: Window tabs pinned under header */}
+      {isMobile && selectedSession && windows.length > 0 && (
+        <div className={`flex items-center gap-1 px-2 py-1.5 overflow-x-auto scrollbar-hide border-b ${theme === 'dark' ? 'bg-[#080e1a] border-neutral-800/60' : 'bg-slate-50 border-slate-200'}`}>
+          {windows.map((win) => (
+            <button
+              key={win.id}
+              onClick={() => handleSwitchWindow(win.index)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 flex-shrink-0 touch-manipulation select-none active:scale-95
+                ${activeWindowIndex === win.index
+                  ? theme === 'dark'
+                    ? 'bg-teal-500/15 text-teal-300 ring-1 ring-teal-500/30'
+                    : 'bg-teal-50 text-teal-700 ring-1 ring-teal-500/30'
+                  : theme === 'dark'
+                  ? 'text-neutral-500 active:bg-neutral-800'
+                  : 'text-neutral-400 active:bg-slate-200'
+                }`}
+            >
+              <span className={`mr-1 font-mono text-[10px] ${activeWindowIndex === win.index ? '' : theme === 'dark' ? 'text-neutral-600' : 'text-neutral-300'}`}>{win.index}</span>
+              {win.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className={`${isMobile ? 'flex' : 'flex-1 flex overflow-hidden'} relative`}>
         {/* Mobile Overlay - transparent */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 top-16 bg-transparent md:hidden"
+            className={`fixed inset-0 top-16 md:hidden ${theme === 'dark' ? 'bg-black/40' : 'bg-black/10'} backdrop-blur-[2px]`}
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Sidebar - Sessions List */}
+        {/* Sidebar - Sessions List - Clean design */}
         <div className={`
           fixed md:relative top-0 md:top-auto bottom-0 left-0 z-20
-          w-64 ${themes[theme].sidebar} flex flex-col
-          pt-16 md:pt-0
-          shadow-2xl md:shadow-none
+          w-72 ${themes[theme].sidebar} flex flex-col
+          pt-14 md:pt-0
+          shadow-xl md:shadow-none
+          border-r ${themes[theme].border}
           transform transition-transform duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0
         `}>
-          {/* Subtle gradient border right (desktop only) */}
-          <div className="hidden md:block absolute top-0 bottom-0 right-0 w-[1px] bg-gradient-to-b from-transparent via-neutral-700/30 to-transparent" />
-
           {/* Top Section - Header & New Button */}
-          <div className={`p-3 border-b ${theme === 'dark' ? 'border-neutral-800/50' : 'border-slate-200/50'}`}>
+          <div className={`p-4 border-b ${themes[theme].border}`}>
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <svg className={`w-4 h-4 ${theme === 'dark' ? 'text-neutral-500' : 'text-neutral-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h2 className={`text-xs font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                  Sessions
-                </h2>
-              </div>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${theme === 'dark' ? 'bg-neutral-800 text-neutral-400' : 'bg-slate-200 text-neutral-600'}`}>
+              <h2 className={`text-sm font-semibold ${themes[theme].text}`}>Sessions</h2>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${themes[theme].accentBg} ${themes[theme].accent}`}>
                 {sessions.length}
               </span>
             </div>
             <button
               onClick={handleCreateSession}
               disabled={!connected}
-              className={`w-full px-3 py-2 rounded-lg text-xs font-medium
-                flex items-center justify-center gap-1.5
-                transition-all duration-200 touch-manipulation select-none
-                ${theme === 'dark'
-                  ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-neutral-100'
-                  : 'bg-slate-200 hover:bg-slate-300 text-neutral-700 hover:text-neutral-900'}
-                ${theme === 'dark' ? 'disabled:bg-neutral-900' : 'disabled:bg-slate-100'}
-                disabled:opacity-40 disabled:cursor-not-allowed
-                active:scale-[0.98]`}
+              className={`w-full min-h-[44px] px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition-all touch-manipulation select-none active:scale-[0.98]
+                ${themes[theme].button} disabled:opacity-40`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               New Session
             </button>
           </div>
 
           {/* Middle Section - Session List */}
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 overflow-y-auto p-3">
             {sessions.length === 0 ? (
-              <div className={`flex flex-col items-center justify-center py-8 ${theme === 'dark' ? 'text-neutral-600' : 'text-neutral-400'}`}>
-                <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <p className="text-xs">No sessions</p>
+              <div className={`flex flex-col items-center justify-center py-10 rounded-xl border-2 border-dashed ${themes[theme].border}`}>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${themes[theme].accentBg}`}>
+                  <svg className={`w-6 h-6 ${themes[theme].accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <p className={`text-sm ${themes[theme].textMuted}`}>No sessions</p>
               </div>
             ) : (
               <div className="space-y-1.5">
                 {sessions.map((session) => (
                   <div
                     key={session.id}
-                    className={`group relative rounded-xl p-2.5 cursor-pointer transition-all duration-200 ease-out touch-manipulation select-none ${
-                      selectedSession?.id === session.id
-                        ? theme === 'dark'
-                          ? 'bg-neutral-700/80 shadow-lg shadow-neutral-900/30'
-                          : 'bg-slate-300 shadow-lg shadow-slate-900/10'
-                        : theme === 'dark'
-                        ? 'hover:bg-neutral-800/80'
-                        : 'hover:bg-slate-200'
-                    } ${longPressSessionId === session.id ? 'ring-2 ring-blue-500/50' : ''}`}
+                    className={`group relative rounded-xl p-3 cursor-pointer transition-all duration-200 touch-manipulation select-none
+                      ${selectedSession?.id === session.id
+                        ? `${themes[theme].accentBg} border ${theme === 'dark' ? 'border-teal-500/40' : 'border-teal-500/30'}`
+                        : `${themes[theme].cardHover} border border-transparent`
+                      } ${longPressSessionId === session.id ? 'ring-2 ring-teal-500/50' : ''}`}
                     onClick={() => {
-                      if (longPressSessionId === session.id) {
-                        setLongPressSessionId(null);
-                      } else {
-                        handleSelectSession(session);
-                      }
+                      if (longPressSessionId === session.id) setLongPressSessionId(null);
+                      else handleSelectSession(session);
                     }}
                     onTouchStart={() => handleSessionTouchStart(session)}
                     onTouchEnd={handleSessionTouchEnd}
                     onTouchMove={handleSessionTouchMove}
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <h3 className={`font-medium text-sm truncate ${
-                            selectedSession?.id === session.id
-                              ? theme === 'dark' ? 'text-neutral-100' : 'text-neutral-900'
-                              : theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'
-                          }`}>
+                        <div className="flex items-center gap-2">
+                          <h3 className={`font-medium text-sm truncate ${selectedSession?.id === session.id ? themes[theme].accent : themes[theme].text}`}>
                             {session.name}
                           </h3>
                           {session.attached && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-sm shadow-green-500/50 flex-shrink-0" />
+                            <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${themes[theme].accentBg} ${themes[theme].accent}`}>
+                              <span className="w-1 h-1 rounded-full bg-teal-500 animate-pulse" />
+                              Live
+                            </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`text-[10px] flex items-center gap-0.5 ${
-                            theme === 'dark' ? 'text-neutral-500' : 'text-neutral-500'
-                          }`}>
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                            </svg>
-                            {session.windows.length}
-                          </span>
-                          <span className={`text-[10px] ${theme === 'dark' ? 'text-neutral-600' : 'text-neutral-400'}`}>•</span>
-                          <span className={`text-[10px] ${theme === 'dark' ? 'text-neutral-500' : 'text-neutral-500'}`}>
-                            {session.attached ? 'Active' : 'Idle'}
-                          </span>
-                        </div>
+                        <p className={`text-xs mt-0.5 ${themes[theme].textMuted}`}>
+                          {session.windows.length} window{session.windows.length !== 1 ? 's' : ''}
+                        </p>
                       </div>
-                      {/* Desktop: Small action buttons on hover */}
-                      <div className={`hidden md:flex items-center gap-1 opacity-0 group-hover:opacity-100`}>
+                      {/* Desktop hover actions */}
+                      <div className={`hidden md:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
                         <button
                           onClick={(e) => handleRenameSession(session, e)}
-                          className={`p-1 rounded-md transition-all duration-200
-                            hover:bg-blue-500/20 active:bg-blue-500/30
-                            ${theme === 'dark' ? 'text-neutral-500 hover:text-blue-400' : 'text-neutral-400 hover:text-blue-500'}`}
-                          title="Rename session"
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors
+                            ${theme === 'dark' ? 'hover:bg-white/10 text-gray-500 hover:text-white' : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'}`}
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                           </svg>
                         </button>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSession(session);
-                          }}
-                          className={`p-1 rounded-md transition-all duration-200
-                            hover:bg-red-500/20 active:bg-red-500/30
-                            ${theme === 'dark' ? 'text-neutral-500 hover:text-red-400' : 'text-neutral-400 hover:text-red-500'}`}
-                          title="Delete session"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteSession(session); }}
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors
+                            ${theme === 'dark' ? 'hover:bg-red-500/20 text-gray-500 hover:text-red-400' : 'hover:bg-red-50 text-gray-400 hover:text-red-500'}`}
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                           </svg>
                         </button>
                       </div>
-
                     </div>
                   </div>
                 ))}
@@ -1392,7 +1403,7 @@ export default function TerminalPage() {
                       Rename
                     </button>
                     <button
-                      onClick={(e) => {
+                      onClick={() => {
                         const session = sessions.find(s => s.id === longPressSessionId);
                         if (session) handleDeleteSession(session);
                       }}
@@ -1438,9 +1449,9 @@ export default function TerminalPage() {
 
         {/* Main Terminal Area */}
         <div className={`${isMobile ? 'flex flex-col w-full' : 'flex-1 flex flex-col overflow-hidden'} ${themes[theme].bg} min-w-0`}>
-          {/* Window Tabs - show when session has multiple windows */}
-          {selectedSession && windows.length > 1 && (
-            <div className={`flex items-center gap-1.5 px-2 md:px-3 py-2 overflow-x-auto scrollbar-hide ${theme === 'dark' ? 'bg-neutral-900/80' : 'bg-slate-100/80'} border-b ${theme === 'dark' ? 'border-neutral-800' : 'border-slate-200'}`}>
+          {/* Window Tabs - desktop only (mobile tabs are pinned under header) */}
+          {!isMobile && selectedSession && windows.length > 1 && (
+            <div className={`flex items-center gap-1.5 px-3 py-2 overflow-x-auto scrollbar-hide ${theme === 'dark' ? 'bg-neutral-900/80' : 'bg-slate-100/80'} border-b ${theme === 'dark' ? 'border-neutral-800' : 'border-slate-200'}`}>
               <svg className={`w-4 h-4 flex-shrink-0 ${theme === 'dark' ? 'text-neutral-500' : 'text-neutral-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
               </svg>
@@ -1471,13 +1482,14 @@ export default function TerminalPage() {
               /* Mobile: Simple HTML view with inline input */
               <div
                 ref={mobileTerminalRef}
-                className={`w-full font-mono leading-tight ${wrapMode === 'nowrap' ? 'overflow-x-auto' : ''}`}
+                className={`w-full font-mono leading-tight rounded-3xl border ${themes[theme].border} shadow-inner ${wrapMode === 'nowrap' ? 'overflow-x-auto' : ''}`}
                 style={{
                   backgroundColor: themes[theme].terminal.background,
                   color: themes[theme].terminal.foreground,
                   fontSize: `${fontSize}px`,
-                  minHeight: '100vh',
-                  paddingBottom: '100px',
+                  minHeight: '72vh',
+                  paddingBottom: '88px',
+                  boxShadow: '0 25px 60px -40px rgba(0,0,0,0.55)',
                 }}
               >
                 {/* Terminal content */}
@@ -1486,7 +1498,7 @@ export default function TerminalPage() {
                     whiteSpace: wrapMode === 'wrap' ? 'pre-wrap' : 'pre',
                     wordBreak: wrapMode === 'wrap' ? 'break-word' : 'keep-all',
                     overflowWrap: wrapMode === 'wrap' ? 'anywhere' : 'normal',
-                    padding: '4px 8px',
+                    padding: '12px',
                   }}
                   dangerouslySetInnerHTML={{
                     __html: (() => {
@@ -1519,8 +1531,8 @@ export default function TerminalPage() {
           {/* Desktop spacer */}
           {selectedSession && !sidebarOpen && !isMobile && <div className="h-24"></div>}
 
-          {/* Mobile: Draggable keyboard button - only in disabled mode and floating mode */}
-          {isMobile && selectedSession && !sidebarOpen && inputMode === 'disabled' && mobileInputType === 'floating' && (
+          {/* Mobile: Unified floating control bar — scroll + keyboard */}
+          {isMobile && selectedSession && !sidebarOpen && inputMode === 'disabled' && (
             <div
               className="fixed z-20 touch-none select-none"
               style={{
@@ -1528,63 +1540,95 @@ export default function TerminalPage() {
                 bottom: `${keyboardPosition.y}px`,
               }}
               onTouchStart={(e) => {
-                handleDragStart(e);
-                // Start long press timer
-                keyboardLongPressRef.current = setTimeout(() => {
-                  if (!isDragging) {
-                    setInputMode('quickkeys');
-                  }
-                }, 400);
+                if (mobileInputType === 'floating') handleDragStart(e);
               }}
               onTouchMove={(e) => {
-                handleDragMove(e);
-                // Cancel long press if dragging
-                if (keyboardLongPressRef.current) {
-                  clearTimeout(keyboardLongPressRef.current);
-                  keyboardLongPressRef.current = null;
+                if (mobileInputType === 'floating') {
+                  handleDragMove(e);
+                  if (keyboardLongPressRef.current) {
+                    clearTimeout(keyboardLongPressRef.current);
+                    keyboardLongPressRef.current = null;
+                  }
                 }
               }}
               onTouchEnd={() => {
-                handleDragEnd();
-                // Cancel long press timer
-                if (keyboardLongPressRef.current) {
-                  clearTimeout(keyboardLongPressRef.current);
-                  keyboardLongPressRef.current = null;
+                if (mobileInputType === 'floating') {
+                  handleDragEnd();
+                  if (keyboardLongPressRef.current) {
+                    clearTimeout(keyboardLongPressRef.current);
+                    keyboardLongPressRef.current = null;
+                  }
                 }
               }}
             >
-              <button
-                onClick={() => {
-                  if (!isDragging && inputMode === 'disabled') {
-                    setInputMode('active');
-                  }
-                }}
-                disabled={!connected}
-                className={`group relative w-11 h-11 flex items-center justify-center
-                  transition-all duration-300 ease-out
-                  touch-manipulation rounded-2xl
-                  backdrop-blur-xl
-                  ${theme === 'dark'
-                    ? 'bg-white/15 border border-white/25 shadow-[0_4px_16px_rgba(0,0,0,0.15)]'
-                    : 'bg-black/10 border border-black/10 shadow-[0_4px_16px_rgba(0,0,0,0.1)]'}
-                  ${isDragging ? 'scale-110' : 'scale-100'}
-                  disabled:opacity-30 disabled:cursor-not-allowed
-                  active:scale-95 active:bg-white/25`}
-                aria-label="Open keyboard"
+              <div className={`flex flex-col items-center rounded-2xl overflow-hidden shadow-xl transition-all duration-200
+                ${isDragging ? 'scale-105' : 'scale-100'}
+                ${theme === 'dark'
+                  ? 'bg-[#0f172a]/90 shadow-black/40 ring-1 ring-white/[0.08]'
+                  : 'bg-white/90 shadow-black/15 ring-1 ring-black/[0.06]'}
+                backdrop-blur-xl`}
               >
-                <svg className={`w-5 h-5 transition-all duration-300
-                  ${theme === 'dark' ? 'text-white/80' : 'text-black/60'}
-                  group-active:scale-95`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}
+                {/* Scroll to top */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className={`w-11 h-10 flex items-center justify-center transition-colors touch-manipulation select-none active:scale-90
+                    ${theme === 'dark' ? 'text-neutral-500 active:text-neutral-300 active:bg-white/5' : 'text-neutral-400 active:text-neutral-600 active:bg-black/5'}`}
+                  aria-label="Scroll to top"
                 >
-                  <rect x="3" y="7" width="18" height="11" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path strokeLinecap="round" d="M7 11h.01M12 11h.01M17 11h.01M8 14h8" />
-                </svg>
-              </button>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l7.5-7.5 7.5 7.5" />
+                  </svg>
+                </button>
+
+                {/* Divider */}
+                <div className={`w-6 h-px ${theme === 'dark' ? 'bg-white/[0.06]' : 'bg-black/[0.06]'}`} />
+
+                {/* Keyboard / Input button */}
+                {mobileInputType === 'floating' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isDragging && inputMode === 'disabled') setInputMode('active');
+                    }}
+                    onTouchStart={() => {
+                      keyboardLongPressRef.current = setTimeout(() => {
+                        if (!isDragging) setInputMode('quickkeys');
+                      }, 400);
+                    }}
+                    disabled={!connected}
+                    className={`w-11 h-11 flex items-center justify-center transition-colors touch-manipulation select-none
+                      ${theme === 'dark' ? 'text-teal-400 active:bg-teal-500/15' : 'text-teal-600 active:bg-teal-50'}
+                      disabled:opacity-30`}
+                    aria-label="Open keyboard"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                      <rect x="3" y="7" width="18" height="11" rx="2" />
+                      <path strokeLinecap="round" d="M7 11h.01M12 11h.01M17 11h.01M8 14h8" />
+                    </svg>
+                  </button>
+                )}
+
+                {/* Divider */}
+                {mobileInputType === 'floating' && (
+                  <div className={`w-6 h-px ${theme === 'dark' ? 'bg-white/[0.06]' : 'bg-black/[0.06]'}`} />
+                )}
+
+                {/* Scroll to bottom */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }); }}
+                  className={`w-11 h-10 flex items-center justify-center transition-colors touch-manipulation select-none active:scale-90
+                    ${theme === 'dark' ? 'text-neutral-500 active:text-neutral-300 active:bg-white/5' : 'text-neutral-400 active:text-neutral-600 active:bg-black/5'}`}
+                  aria-label="Scroll to bottom"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12.75l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Mobile: Quick keys mode - floating buttons */}
+          {/* Mobile: Quick keys mode - Clean floating panel */}
           {isMobile && selectedSession && !sidebarOpen && inputMode === 'quickkeys' && (
             <div
               className="fixed z-20"
@@ -1593,45 +1637,40 @@ export default function TerminalPage() {
                 bottom: `${keyboardPosition.y}px`,
               }}
             >
-              <div className={`flex items-center gap-1.5 p-2 rounded-2xl shadow-xl backdrop-blur-md
-                ${theme === 'dark' ? 'bg-neutral-800/95' : 'bg-white/95'}
-                border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}
+              <div className={`flex items-center gap-2 p-2 rounded-2xl shadow-xl backdrop-blur-xl
+                ${theme === 'dark' ? 'bg-[#0f172a]/95 border border-[#18233a]' : 'bg-white/95 border border-gray-200'}`}
               >
-                {/* Esc - leftmost */}
+                {/* Esc */}
                 <button
                   onClick={() => {
                     if (ws && selectedSession) {
-                      // Send Escape key
-                      ws.send(MessageType.EXECUTE_COMMAND, {
-                        session_name: selectedSession.name,
-                        command: 'Escape',
-                        window_index: activeWindowIndex,
-                      });
-
-                      // Show command in mobile terminal
+                      ws.send(MessageType.EXECUTE_COMMAND, { session_name: selectedSession.name, command: 'Escape', window_index: activeWindowIndex });
                       setTerminalOutput((prev) => prev + `$ [ESC]\n`);
-
-                      // Capture output after delay
-                      setTimeout(() => {
-                        if (ws && selectedSession) {
-                          ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
-                        }
-                      }, 100);
-
-                      // Close quick keys panel after a brief delay to show feedback
-                      setTimeout(() => {
-                        setInputMode('disabled');
-                      }, 100);
+                      setTimeout(() => ws?.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex }), 100);
+                      setTimeout(() => setInputMode('disabled'), 100);
                     }
                   }}
-                  className={`px-2.5 h-10 rounded-xl font-mono text-xs font-bold
-                    transition-all duration-150 touch-manipulation select-none active:scale-90
-                    ${theme === 'dark'
-                      ? 'bg-neutral-600 text-neutral-300 active:bg-neutral-500'
-                      : 'bg-neutral-300 text-neutral-600 active:bg-neutral-400'
-                    }`}
+                  className={`min-w-[44px] min-h-[44px] px-3 rounded-xl font-medium text-sm
+                    transition-all touch-manipulation select-none active:scale-90
+                    ${theme === 'dark' ? 'bg-[#1A1A1A] text-teal-400 active:bg-teal-500/20' : 'bg-gray-100 text-teal-600 active:bg-teal-50'}`}
                 >
                   Esc
+                </button>
+                {/* Tab */}
+                <button
+                  onClick={() => {
+                    if (ws && selectedSession) {
+                      ws.send(MessageType.EXECUTE_COMMAND, { session_name: selectedSession.name, command: 'Tab', window_index: activeWindowIndex });
+                      setTerminalOutput((prev) => prev + `$ [TAB]\n`);
+                      setTimeout(() => ws?.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex }), 100);
+                      setTimeout(() => setInputMode('disabled'), 100);
+                    }
+                  }}
+                  className={`min-w-[44px] min-h-[44px] px-3 rounded-xl font-medium text-sm
+                    transition-all touch-manipulation select-none active:scale-90
+                    ${theme === 'dark' ? 'bg-[#1A1A1A] text-teal-400 active:bg-teal-500/20' : 'bg-gray-100 text-teal-600 active:bg-teal-50'}`}
+                >
+                  Tab
                 </button>
                 {/* 1, 2, 3 */}
                 {['1', '2', '3'].map((key) => (
@@ -1639,84 +1678,41 @@ export default function TerminalPage() {
                     key={key}
                     onClick={() => {
                       if (ws && selectedSession) {
-                        // Send command
-                        ws.send(MessageType.EXECUTE_COMMAND, {
-                          session_name: selectedSession.name,
-                          command: key,
-                          window_index: activeWindowIndex,
-                        });
-
-                        // Show command in mobile terminal
+                        ws.send(MessageType.EXECUTE_COMMAND, { session_name: selectedSession.name, command: key, window_index: activeWindowIndex });
                         setTerminalOutput((prev) => prev + `$ ${key}\n`);
-
-                        // Capture output after delay
-                        setTimeout(() => {
-                          if (ws && selectedSession) {
-                            ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
-                          }
-                        }, 100);
-
-                        // Close quick keys panel after a brief delay to show feedback
-                        setTimeout(() => {
-                          setInputMode('disabled');
-                        }, 100);
+                        setTimeout(() => ws?.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex }), 100);
+                        setTimeout(() => setInputMode('disabled'), 100);
                       }
                     }}
-                    className={`w-10 h-10 rounded-xl font-mono font-bold text-base
-                      transition-all duration-150 touch-manipulation select-none active:scale-90
-                      ${theme === 'dark'
-                        ? 'bg-neutral-700 text-neutral-200 active:bg-neutral-600'
-                        : 'bg-neutral-200 text-neutral-700 active:bg-neutral-300'
-                      }`}
+                    className={`min-w-[44px] min-h-[44px] rounded-xl font-medium text-base
+                      transition-all touch-manipulation select-none active:scale-90
+                      ${theme === 'dark' ? 'bg-[#1A1A1A] text-white active:bg-white/10' : 'bg-gray-100 text-gray-700 active:bg-gray-200'}`}
                   >
                     {key}
                   </button>
                 ))}
-                {/* Enter - rightmost */}
+                {/* Enter */}
                 <button
                   onClick={() => {
                     if (ws && selectedSession) {
-                      // Send Enter key
-                      ws.send(MessageType.EXECUTE_COMMAND, {
-                        session_name: selectedSession.name,
-                        command: 'Enter',
-                        window_index: activeWindowIndex,
-                      });
-
-                      // Show command in mobile terminal
+                      ws.send(MessageType.EXECUTE_COMMAND, { session_name: selectedSession.name, command: 'Enter', window_index: activeWindowIndex });
                       setTerminalOutput((prev) => prev + `$ [Enter]\n`);
-
-                      // Capture output after delay
-                      setTimeout(() => {
-                        if (ws && selectedSession) {
-                          ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
-                        }
-                      }, 100);
-
-                      // Close quick keys panel after a brief delay to show feedback
-                      setTimeout(() => {
-                        setInputMode('disabled');
-                      }, 100);
+                      setTimeout(() => ws?.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex }), 100);
+                      setTimeout(() => setInputMode('disabled'), 100);
                     }
                   }}
-                  className={`w-10 h-10 rounded-xl font-mono text-lg font-bold
-                    transition-all duration-150 touch-manipulation select-none active:scale-90
-                    ${theme === 'dark'
-                      ? 'bg-neutral-700 text-neutral-200 active:bg-neutral-600'
-                      : 'bg-neutral-200 text-neutral-700 active:bg-neutral-300'
-                    }`}
+                  className={`min-w-[44px] min-h-[44px] rounded-xl font-medium text-lg
+                    transition-all touch-manipulation select-none active:scale-90
+                    ${theme === 'dark' ? 'bg-teal-500 text-black active:bg-teal-400' : 'bg-teal-600 text-white active:bg-teal-500'}`}
                 >
                   ↵
                 </button>
-                {/* Close button */}
+                {/* Close */}
                 <button
                   onClick={() => setInputMode('disabled')}
                   className={`w-10 h-10 rounded-xl flex items-center justify-center
-                    transition-all duration-150 touch-manipulation select-none active:scale-90
-                    ${theme === 'dark'
-                      ? 'bg-neutral-900/50 text-neutral-500 active:bg-neutral-800'
-                      : 'bg-neutral-100 text-neutral-400 active:bg-neutral-200'
-                    }`}
+                    transition-all touch-manipulation select-none active:scale-90
+                    ${theme === 'dark' ? 'text-gray-500 active:bg-white/5' : 'text-gray-400 active:bg-gray-100'}`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1726,17 +1722,13 @@ export default function TerminalPage() {
             </div>
           )}
 
-          {/* Mobile: Fixed input box when active (both modes) */}
+          {/* Mobile: Fixed input box when active - Clean design */}
           {isMobile && selectedSession && !sidebarOpen && inputMode === 'active' && (
-            <div
-              className="fixed left-0 right-0 z-30 px-4 pb-2"
-              style={{
-                bottom: '8px',
-                position: 'fixed'
-              }}
-            >
-              <div className={`rounded-2xl px-3 py-3 ${theme === 'dark' ? 'bg-neutral-800/95' : 'bg-white/95'} backdrop-blur-xl shadow-2xl border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
-                <form onSubmit={handleSendCommand} className="flex items-end gap-2">
+            <div className="fixed left-0 right-0 bottom-2 z-30 px-3">
+              <div className={`rounded-2xl px-4 py-3 backdrop-blur-xl shadow-xl border ${
+                theme === 'dark' ? 'bg-[#0f172a]/95 border-[#18233a]' : 'bg-white/95 border-gray-200'
+              }`}>
+                <form onSubmit={handleSendCommand} className="flex items-end gap-3">
                   <textarea
                     ref={textareaRef}
                     value={command}
@@ -1747,49 +1739,27 @@ export default function TerminalPage() {
                         handleSendCommand(e);
                       }
                     }}
-                    onBlur={() => {
-                      setTimeout(() => {
-                        setInputMode('disabled');
-                      }, 150);
-                    }}
-                    placeholder="Enter command... (Shift+Enter for new line)"
-                    style={{
-                      fontSize: '16px',
-                      resize: 'none',
-                      minHeight: '24px',
-                      maxHeight: '256px',
-                      overflowY: 'auto',
-                      lineHeight: '1.5'
-                    }}
-                    className={`flex-1 px-0 py-0
-                      bg-transparent
-                      ${themes[theme].text}
-                      ${theme === 'dark' ? 'placeholder-neutral-500' : 'placeholder-neutral-400'}
-                      outline-none
-                      touch-manipulation
-                      font-mono text-base`}
+                    onBlur={() => setTimeout(() => setInputMode('disabled'), 150)}
+                    placeholder="Enter command..."
+                    style={{ fontSize: '16px', resize: 'none', minHeight: '24px', maxHeight: '200px', overflowY: 'auto', lineHeight: '1.5' }}
+                    className={`flex-1 px-0 py-0 bg-transparent outline-none touch-manipulation font-mono text-base
+                      ${themes[theme].text} ${theme === 'dark' ? 'placeholder-gray-500' : 'placeholder-gray-400'}`}
                     autoComplete="off"
                     autoFocus
                   />
                   <button
                     type={command.trim() ? 'submit' : 'button'}
-                    onClick={() => {
-                      if (!command.trim()) {
-                        setInputMode('disabled');
-                      }
-                    }}
-                    className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center
-                      transition-all duration-200 touch-manipulation
+                    onClick={() => { if (!command.trim()) setInputMode('disabled'); }}
+                    className={`min-w-[44px] min-h-[44px] rounded-xl flex-shrink-0 flex items-center justify-center transition-all touch-manipulation active:scale-90
                       ${command.trim()
-                        ? theme === 'dark' ? 'bg-neutral-600 text-neutral-200' : 'bg-neutral-500 text-white'
-                        : theme === 'dark' ? 'bg-neutral-700/50 text-neutral-400' : 'bg-neutral-200 text-neutral-500'
-                      }
-                      active:scale-90`}
+                        ? theme === 'dark' ? 'bg-teal-500 text-black' : 'bg-teal-600 text-white'
+                        : theme === 'dark' ? 'bg-[#1A1A1A] text-gray-500' : 'bg-gray-100 text-gray-400'
+                      }`}
                     aria-label={command.trim() ? 'Send' : 'Close'}
                   >
                     {command.trim() ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5M5 12l7-7 7 7" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
                       </svg>
                     ) : (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -1802,202 +1772,137 @@ export default function TerminalPage() {
             </div>
           )}
 
-          {/* Mobile Touchscreen Mode: Bottom trigger area */}
+          {/* Mobile Touchscreen Mode: Bottom trigger area - Clean design */}
           {isMobile && selectedSession && !sidebarOpen && mobileInputType === 'touchscreen' && inputMode === 'disabled' && (
             <div
-              className={`fixed bottom-0 left-0 right-0 z-30 flex items-center justify-center backdrop-blur-sm transition-all duration-300 ${
-                isNearBottom ? 'h-32' : 'h-16'
-              }`}
+              className={`fixed bottom-0 left-0 right-0 z-30 flex items-center justify-center transition-all duration-300 ${isNearBottom ? 'h-28' : 'h-14'}`}
               style={{
                 background: theme === 'dark'
-                  ? isNearBottom
-                    ? 'linear-gradient(to top, rgba(23, 23, 23, 0.98), rgba(23, 23, 23, 0.3))'
-                    : 'linear-gradient(to top, rgba(23, 23, 23, 0.95), rgba(23, 23, 23, 0))'
-                  : isNearBottom
-                    ? 'linear-gradient(to top, rgba(248, 250, 252, 0.98), rgba(248, 250, 252, 0.3))'
-                    : 'linear-gradient(to top, rgba(248, 250, 252, 0.95), rgba(248, 250, 252, 0))'
+                  ? 'linear-gradient(to top, rgba(5,7,13,0.95), rgba(5,7,13,0))'
+                  : 'linear-gradient(to top, rgba(250,250,250,0.95), rgba(250,250,250,0))'
               }}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-              }}
+              onTouchStart={(e) => e.stopPropagation()}
               onTouchEnd={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 const now = Date.now();
-                const timeSinceLastTap = now - lastTapTimeRef.current;
-
-                if (timeSinceLastTap < 300) {
-                  // Double tap - show quick keys
+                if (now - lastTapTimeRef.current < 300) {
                   setInputMode('quickkeys');
                   lastTapTimeRef.current = 0;
                 } else {
-                  // Single tap - show input
                   setInputMode('active');
                   lastTapTimeRef.current = now;
                 }
               }}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                setInputMode('active');
-              }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setInputMode('active'); }}
             >
-              <div className={`px-6 py-2.5 rounded-full border shadow-lg backdrop-blur-md transition-all duration-300 pointer-events-none ${
+              <div className={`px-5 py-2.5 rounded-xl border shadow-lg transition-all duration-200 pointer-events-none ${
                 isNearBottom
-                  ? theme === 'dark'
-                    ? 'bg-neutral-700/90 border-neutral-600/70 scale-110'
-                    : 'bg-white/90 border-neutral-300 scale-110'
-                  : theme === 'dark'
-                    ? 'bg-neutral-800/80 border-neutral-700/50'
-                    : 'bg-white/80 border-neutral-200'
+                  ? theme === 'dark' ? 'bg-[#0f172a] border-teal-500/40 scale-105' : 'bg-white border-teal-500/40 scale-105'
+                  : theme === 'dark' ? 'bg-[#0f172a]/90 border-[#18233a]' : 'bg-white/90 border-gray-200'
               }`}>
                 <div className="flex items-center gap-2">
-                  <svg className={`transition-all duration-300 ${
-                    isNearBottom ? 'w-5 h-5' : 'w-4 h-4'
-                  } ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  <svg className={`w-4 h-4 ${themes[theme].accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <rect x="3" y="7" width="18" height="11" rx="2" />
+                    <path strokeLinecap="round" d="M7 11h.01M12 11h.01M17 11h.01M8 14h8" />
                   </svg>
-                  <span className={`transition-all duration-300 ${
-                    isNearBottom ? 'text-base font-medium' : 'text-sm'
-                  } ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-700'}`}>
-                    {isNearBottom ? '点击输入' : 'Tap to type • Double tap for keys'}
+                  <span className={`text-xs ${themes[theme].text}`}>
+                    {isNearBottom ? 'Tap to type' : 'Tap to type'}
                   </span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Mobile Touchscreen Mode: Quick keys panel (center bottom) */}
+          {/* Mobile Touchscreen Mode: Quick keys panel (center bottom) - Clean design */}
           {isMobile && selectedSession && !sidebarOpen && mobileInputType === 'touchscreen' && inputMode === 'quickkeys' && (
             <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-20">
-              <div className={`flex flex-col gap-2 p-3 rounded-2xl shadow-2xl backdrop-blur-md
-                ${theme === 'dark' ? 'bg-neutral-800/95' : 'bg-white/95'}
-                border ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}
+              <div className={`flex flex-col gap-2 p-2.5 rounded-2xl shadow-xl backdrop-blur-xl
+                ${theme === 'dark' ? 'bg-[#0f172a]/95 border border-[#18233a]' : 'bg-white/95 border border-gray-200'}`}
               >
                 {/* Window switcher (if multiple windows) */}
                 {windows.length > 1 && (
-                  <div className={`flex items-center gap-1.5 pb-2 border-b ${theme === 'dark' ? 'border-neutral-700/50' : 'border-neutral-200'}`}>
-                    <svg className={`w-3.5 h-3.5 flex-shrink-0 ${theme === 'dark' ? 'text-neutral-500' : 'text-neutral-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                    </svg>
+                  <div className={`flex items-center gap-1.5 pb-2 border-b ${themes[theme].border}`}>
                     {windows.map((win) => (
                       <button
                         key={win.id}
-                        onClick={() => {
-                          handleSwitchWindow(win.index);
-                          setInputMode('disabled');
-                        }}
-                        className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200 touch-manipulation select-none active:scale-90
+                        onClick={() => { handleSwitchWindow(win.index); setInputMode('disabled'); }}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all touch-manipulation select-none active:scale-90
                           ${activeWindowIndex === win.index
-                            ? theme === 'dark'
-                              ? 'bg-neutral-600 text-neutral-100'
-                              : 'bg-neutral-700 text-white'
-                            : theme === 'dark'
-                            ? 'bg-neutral-700/50 text-neutral-400 active:bg-neutral-600'
-                            : 'bg-neutral-200 text-neutral-600 active:bg-neutral-300'
+                            ? theme === 'dark' ? 'bg-teal-500/20 text-teal-400' : 'bg-teal-50 text-teal-600'
+                            : theme === 'dark' ? 'bg-white/5 text-gray-400' : 'bg-gray-100 text-gray-500'
                           }`}
                       >
-                        <span className="font-mono">{win.index}</span>
+                        {win.index}
                       </button>
                     ))}
                   </div>
                 )}
-
                 {/* Quick keys row */}
-                <div className="flex items-center gap-1.5">
-                  {/* Esc */}
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
                       if (ws && selectedSession) {
-                        ws.send(MessageType.EXECUTE_COMMAND, {
-                          session_name: selectedSession.name,
-                          command: 'Escape',
-                          window_index: activeWindowIndex,
-                        });
+                        ws.send(MessageType.EXECUTE_COMMAND, { session_name: selectedSession.name, command: 'Escape', window_index: activeWindowIndex });
                         setTerminalOutput((prev) => prev + `$ [ESC]\n`);
-                        setTimeout(() => {
-                          if (ws && selectedSession) {
-                            ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
-                          }
-                        }, 100);
+                        setTimeout(() => ws?.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex }), 100);
                         setTimeout(() => setInputMode('disabled'), 100);
                       }
                     }}
-                    className={`px-2.5 h-10 rounded-xl font-mono text-xs font-bold
-                      transition-all duration-150 touch-manipulation select-none active:scale-90
-                      ${theme === 'dark'
-                        ? 'bg-neutral-600 text-neutral-300 active:bg-neutral-500'
-                        : 'bg-neutral-300 text-neutral-600 active:bg-neutral-400'
-                      }`}
+                    className={`min-w-[44px] min-h-[44px] px-3 rounded-xl font-medium text-sm transition-all touch-manipulation select-none active:scale-90
+                      ${theme === 'dark' ? 'bg-[#1A1A1A] text-teal-400 active:bg-teal-500/20' : 'bg-gray-100 text-teal-600 active:bg-teal-50'}`}
                   >
                     Esc
                   </button>
-                  {/* 1, 2, 3 */}
+                  <button
+                    onClick={() => {
+                      if (ws && selectedSession) {
+                        ws.send(MessageType.EXECUTE_COMMAND, { session_name: selectedSession.name, command: 'Tab', window_index: activeWindowIndex });
+                        setTerminalOutput((prev) => prev + `$ [TAB]\n`);
+                        setTimeout(() => ws?.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex }), 100);
+                        setTimeout(() => setInputMode('disabled'), 100);
+                      }
+                    }}
+                    className={`min-w-[44px] min-h-[44px] px-3 rounded-xl font-medium text-sm transition-all touch-manipulation select-none active:scale-90
+                      ${theme === 'dark' ? 'bg-[#1A1A1A] text-teal-400 active:bg-teal-500/20' : 'bg-gray-100 text-teal-600 active:bg-teal-50'}`}
+                  >
+                    Tab
+                  </button>
                   {['1', '2', '3'].map((key) => (
                     <button
                       key={key}
                       onClick={() => {
                         if (ws && selectedSession) {
-                          ws.send(MessageType.EXECUTE_COMMAND, {
-                            session_name: selectedSession.name,
-                            command: key,
-                            window_index: activeWindowIndex,
-                          });
+                          ws.send(MessageType.EXECUTE_COMMAND, { session_name: selectedSession.name, command: key, window_index: activeWindowIndex });
                           setTerminalOutput((prev) => prev + `$ ${key}\n`);
-                          setTimeout(() => {
-                            if (ws && selectedSession) {
-                              ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
-                            }
-                          }, 100);
+                          setTimeout(() => ws?.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex }), 100);
                           setTimeout(() => setInputMode('disabled'), 100);
                         }
                       }}
-                      className={`w-10 h-10 rounded-xl font-mono font-bold text-base
-                        transition-all duration-150 touch-manipulation select-none active:scale-90
-                        ${theme === 'dark'
-                          ? 'bg-neutral-700 text-neutral-200 active:bg-neutral-600'
-                          : 'bg-neutral-200 text-neutral-700 active:bg-neutral-300'
-                        }`}
+                      className={`min-w-[44px] min-h-[44px] rounded-xl font-medium text-base transition-all touch-manipulation select-none active:scale-90
+                        ${theme === 'dark' ? 'bg-[#1A1A1A] text-white active:bg-white/10' : 'bg-gray-100 text-gray-700 active:bg-gray-200'}`}
                     >
                       {key}
                     </button>
                   ))}
-                  {/* Enter */}
                   <button
                     onClick={() => {
                       if (ws && selectedSession) {
-                        ws.send(MessageType.EXECUTE_COMMAND, {
-                          session_name: selectedSession.name,
-                          command: 'Enter',
-                          window_index: activeWindowIndex,
-                        });
+                        ws.send(MessageType.EXECUTE_COMMAND, { session_name: selectedSession.name, command: 'Enter', window_index: activeWindowIndex });
                         setTerminalOutput((prev) => prev + `$ [Enter]\n`);
-                        setTimeout(() => {
-                          if (ws && selectedSession) {
-                            ws.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex });
-                          }
-                        }, 100);
+                        setTimeout(() => ws?.send(MessageType.CAPTURE_OUTPUT, { session_name: selectedSession.name, window_index: activeWindowIndex }), 100);
                         setTimeout(() => setInputMode('disabled'), 100);
                       }
                     }}
-                    className={`w-10 h-10 rounded-xl font-mono text-lg font-bold
-                      transition-all duration-150 touch-manipulation select-none active:scale-90
-                      ${theme === 'dark'
-                        ? 'bg-neutral-700 text-neutral-200 active:bg-neutral-600'
-                        : 'bg-neutral-200 text-neutral-700 active:bg-neutral-300'
-                      }`}
+                    className={`min-w-[44px] min-h-[44px] rounded-xl font-medium text-lg transition-all touch-manipulation select-none active:scale-90
+                      ${theme === 'dark' ? 'bg-teal-500 text-black active:bg-teal-400' : 'bg-teal-600 text-white active:bg-teal-500'}`}
                   >
                     ↵
                   </button>
-                  {/* Close button */}
                   <button
                     onClick={() => setInputMode('disabled')}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center
-                      transition-all duration-150 touch-manipulation select-none active:scale-90
-                      ${theme === 'dark'
-                        ? 'bg-neutral-900/50 text-neutral-500 active:bg-neutral-800'
-                        : 'bg-neutral-100 text-neutral-400 active:bg-neutral-200'
-                      }`}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all touch-manipulation select-none active:scale-90
+                      ${theme === 'dark' ? 'text-gray-500 active:bg-white/5' : 'text-gray-400 active:bg-gray-100'}`}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

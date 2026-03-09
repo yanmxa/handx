@@ -41,7 +41,7 @@ export enum MessageType {
 }
 
 // Base message structure
-export interface Message<T = any> {
+export interface Message<T = unknown> {
   id: string;
   type: MessageType;
   payload: T;

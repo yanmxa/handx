@@ -112,7 +112,7 @@ export default function Home() {
 
     // Handle delete session response
     client.on(MessageType.DELETE_SESSION_RESPONSE, (message) => {
-      if (message.payload.success) {
+      if ((message.payload as { success: boolean }).success) {
         // Refresh session list
         client.send(MessageType.LIST_SESSIONS, {});
       } else {
@@ -133,7 +133,7 @@ export default function Home() {
 
     // Handle errors
     client.on(MessageType.ERROR, (message) => {
-      setError(message.payload.message || 'An error occurred');
+      setError((message.payload as { message?: string }).message || 'An error occurred');
     });
 
     // Connect
@@ -245,115 +245,72 @@ export default function Home() {
         <div className="w-full max-w-lg mx-auto space-y-5">
           {/* Hero */}
           <section className={`relative overflow-hidden rounded-3xl border ${themes[theme].cardBorder} ${theme === 'dark' ? 'bg-[#0b1220]/80' : 'bg-white/90'} shadow-xl shadow-black/10`}>
-            <div className="absolute inset-0 opacity-50">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,0.14),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(14,165,233,0.12),transparent_28%),linear-gradient(135deg,rgba(34,211,238,0.08),rgba(14,165,233,0.04))]" />
+            <div className="absolute inset-0 opacity-60">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_30%,rgba(34,211,238,0.18),transparent_35%),radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.14),transparent_30%),linear-gradient(135deg,rgba(34,211,238,0.06),rgba(14,165,233,0.03))]" />
             </div>
-            <div className="relative p-5 space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <p className={`text-xs uppercase tracking-[0.15em] ${themes[theme].textDim}`}>Mobile shell</p>
-                  <h2 className={`text-xl font-semibold leading-tight ${themes[theme].text}`}>Control tmux sessions anywhere.</h2>
-                  <p className={`text-sm ${themes[theme].textDim}`}>Jump into the terminal or spin up a session with one-hand friendly taps.</p>
-                </div>
-                <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${themes[theme].chip} ${themes[theme].accent}`}>
-                  <span className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-teal-400 animate-pulse' : connectionStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-red-500'}`} />
-                  {connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'connecting' ? 'Linking' : 'Offline'}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => handleEnterTerminal()}
-                  className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm transition-all active:scale-[0.98] ${themes[theme].buttonPrimary}`}
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <div className="relative p-5">
+              <div className="flex items-center gap-3.5">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${themes[theme].accentBg} ${theme === 'dark' ? 'shadow-[0_0_24px_rgba(34,211,238,0.2)] ring-1 ring-[#22d3ee]/20' : 'ring-1 ring-[#0ea5e9]/20'}`}>
+                  <svg className={`w-6 h-6 ${themes[theme].accent}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  Open terminal
-                </button>
-                <button
-                  onClick={handleCreateSession}
-                  disabled={connectionStatus !== 'connected'}
-                  className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm transition-all active:scale-[0.98] ${themes[theme].button} disabled:opacity-50`}
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                  New session
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-3 text-xs">
-                <div className={`flex items-center gap-2 rounded-full px-3 py-1 border ${themes[theme].cardBorder} ${themes[theme].accentBg}`}>
-                  <span className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-teal-400' : 'bg-amber-400'}`} />
-                  {serverVersion ? `Server v${serverVersion}` : 'Server not ready'}
                 </div>
-                <div className={`flex items-center gap-2 rounded-full px-3 py-1 border ${themes[theme].cardBorder}`}>
-                  <svg className={`w-3.5 h-3.5 ${themes[theme].textDim}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l-7-7 7-7m0 14l7-7-7-7" />
-                  </svg>
-                  {hostLabel || 'Hostname loading'}
-                </div>
-                <div className={`flex items-center gap-2 rounded-full px-3 py-1 border ${themes[theme].cardBorder}`}>
-                  <svg className={`w-3.5 h-3.5 ${themes[theme].textDim}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12l4-4m-4 4l4 4" />
-                  </svg>
-                  Tap to enter, long press to manage
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h2 className={`text-xl font-bold tracking-tight ${themes[theme].text}`}>HandX</h2>
+                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider ${
+                      connectionStatus === 'connected'
+                        ? `${themes[theme].accentBg} ${themes[theme].accent}`
+                        : connectionStatus === 'connecting'
+                        ? `${theme === 'dark' ? 'bg-amber-500/12 text-amber-400' : 'bg-amber-50 text-amber-600'}`
+                        : `${theme === 'dark' ? 'bg-red-500/12 text-red-400' : 'bg-red-50 text-red-600'}`
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${connectionStatus === 'connected' ? 'bg-teal-400 animate-pulse' : connectionStatus === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-red-500'}`} />
+                      {connectionStatus === 'connected' ? 'Live' : connectionStatus === 'connecting' ? 'Linking' : 'Offline'}
+                    </div>
+                  </div>
+                  <p className={`text-xs mt-0.5 ${themes[theme].textDim} truncate`}>{hostLabel || 'connecting...'}</p>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Connection Status - Clean card */}
-          <div className={`${themes[theme].card} rounded-2xl p-4 border ${themes[theme].cardBorder}`}>
-            {connectionStatus === 'connecting' && (
-              <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${theme === 'dark' ? 'bg-amber-500/10' : 'bg-amber-50'}`}>
-                  <div className={`w-5 h-5 rounded-full border-2 ${theme === 'dark' ? 'border-amber-400' : 'border-amber-500'} border-t-transparent animate-spin`} />
+          {/* Connection Status - only show when connecting or error */}
+          {connectionStatus !== 'connected' && (
+            <div className={`${themes[theme].card} rounded-2xl p-4 border ${themes[theme].cardBorder}`}>
+              {connectionStatus === 'connecting' && (
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${theme === 'dark' ? 'bg-amber-500/10' : 'bg-amber-50'}`}>
+                    <div className={`w-5 h-5 rounded-full border-2 ${theme === 'dark' ? 'border-amber-400' : 'border-amber-500'} border-t-transparent animate-spin`} />
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-medium ${theme === 'dark' ? 'text-amber-400' : 'text-amber-600'}`}>Connecting...</p>
+                    <p className={`text-sm ${themes[theme].textDim}`}>Establishing connection</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className={`font-medium ${theme === 'dark' ? 'text-amber-400' : 'text-amber-600'}`}>Connecting...</p>
-                  <p className={`text-sm ${themes[theme].textDim}`}>Establishing connection</p>
-                </div>
-              </div>
-            )}
+              )}
 
-            {connectionStatus === 'connected' && (
-              <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${themes[theme].accentBg}`}>
-                  <svg className={`w-5 h-5 ${themes[theme].accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
+              {connectionStatus === 'error' && (
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${theme === 'dark' ? 'bg-red-500/10' : 'bg-red-50'}`}>
+                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-red-500">Disconnected</p>
+                    <p className={`text-sm truncate ${themes[theme].textDim}`}>{error || 'Connection failed'}</p>
+                  </div>
+                  <button
+                    onClick={handleRetry}
+                    className={`min-w-[44px] min-h-[44px] px-4 rounded-xl text-sm font-medium transition-all active:scale-95 ${theme === 'dark' ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-600'}`}
+                  >
+                    Retry
+                  </button>
                 </div>
-                <div className="flex-1">
-                  <p className={`font-medium ${themes[theme].accent}`}>Connected</p>
-                  <p className={`text-sm ${themes[theme].textDim}`}>Server v{serverVersion}</p>
-                </div>
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${themes[theme].accentBg}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse`} />
-                  <span className={`text-xs font-medium ${themes[theme].accent}`}>Live</span>
-                </div>
-              </div>
-            )}
-
-            {connectionStatus === 'error' && (
-              <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${theme === 'dark' ? 'bg-red-500/10' : 'bg-red-50'}`}>
-                  <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-red-500">Disconnected</p>
-                  <p className={`text-sm truncate ${themes[theme].textDim}`}>{error || 'Connection failed'}</p>
-                </div>
-                <button
-                  onClick={handleRetry}
-                  className={`min-w-[44px] min-h-[44px] px-4 rounded-xl text-sm font-medium transition-all active:scale-95 ${theme === 'dark' ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-600'}`}
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Sessions */}
           {connectionStatus === 'connected' && (
@@ -385,8 +342,6 @@ export default function Home() {
                   <span>New</span>
                 </button>
               </div>
-              <p className={`text-xs ${themes[theme].textDim}`}>Tap to enter, long press to edit or delete. 44px targets stay thumb-friendly.</p>
-
               {/* Session list */}
               {sessions.length > 0 ? (
                 <div className="space-y-2">

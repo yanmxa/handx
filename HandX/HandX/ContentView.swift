@@ -7,18 +7,17 @@
 
 import SwiftUI
 
+// ContentView is replaced by MainView
+// This file is kept for compatibility
+
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        MainView()
+            .environment(\.appState, AppState.shared)
     }
 }
 
 #Preview {
     ContentView()
+        .preferredColorScheme(.dark)
 }
